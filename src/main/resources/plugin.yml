@@ -1,0 +1,23 @@
+name: TotalXPRewards
+main: de.celduinx.totalxprewards.TotalXPRewardsPlugin
+version: 1.0.0
+api-version: 1.21
+author: CelduinX
+description: Tracks total XP per player and executes rewards based on thresholds.
+softdepend: [PlaceholderAPI]
+commands:
+  totalxp:
+    description: Manage and view total XP.
+    usage: /<command> <get|set|reset|reload> ...
+    aliases: [txp]
+    permission: totalxp.use
+permissions:
+  totalxp.use:
+    description: Allows basic usage of /totalxp.
+    default: true
+  totalxp.view:
+    description: Allows viewing XP of players.
+    default: true
+  totalxp.admin:
+    description: Allows admin actions.
+    default: op

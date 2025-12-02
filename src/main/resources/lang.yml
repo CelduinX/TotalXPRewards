@@ -1,0 +1,23 @@
+# English language file for TotalXPRewards.
+#
+# This file contains all static messages used by the plugin. Server
+# administrators may customise these strings or translate them into
+# another language. Colour codes use & in place of §. The placeholder
+# "%label%" will be replaced with the base command label, and other
+# placeholders are left for the plugin to replace at runtime.
+
+prefix: "&7[&aTotalXP&7] "
+no-permission: "&cYou do not have permission."
+player-not-found: "&cPlayer not found."
+invalid-number: "&cPlease enter a valid number."
+negative-amount: "&cAmount must not be negative."
+xp-view: "&a%player% has &e%xp% &atotal XP."
+xp-set: "&aSet &e%player%&a's XP to &e%amount%."
+xp-reset: "&aReset XP of &e%player%&a."
+reload-done: "&aTotal XP Rewards config and language reloaded."
+help:
+  - "&7---- &aTotal XP Rewards Help &7----"
+  - "&a/%label% get <player> &7- Show player's total XP"
+  - "&a/%label% set <player> <amount> &7- Set player's total XP"
+  - "&a/%label% reset <player> &7- Reset player's total XP"
+  - "&a/%label% reload &7- Reload config and language"

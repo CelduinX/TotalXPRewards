@@ -1,0 +1,52 @@
+####################################################################
+# TotalXPRewards configuration
+#
+# This file defines the XP reward thresholds and associated commands
+# or broadcast messages. When a player reaches a threshold for the
+# first time, all configured commands are executed (in order) and the
+# broadcast message is sent to all players.
+#
+# Commands and broadcasts support the following placeholders:
+#   %player%      - the player's name
+#   %xp%          - the player's new total XP
+#   %threshold%   - the threshold that was reached
+#
+# If PlaceholderAPI is installed and enabled, additional placeholders
+# will be processed as well.
+####################################################################
+
+settings:
+  # Enable PlaceholderAPI support (requires PlaceholderAPI plugin)
+  use-placeholderapi: true
+
+rewards:
+  # Example reward configuration using MULTIPLE commands:
+  # When a player reaches 1,000 total XP they receive a diamond and some money.
+  "1000":
+    commands:
+      - "give %player% diamond 1"
+      - "eco give %player% 250"
+    broadcast: "&a%player% reached %threshold% total XP (&e%xp%&a)!"
+
+  # Give the VIP rank at 5,000 XP
+  "5000":
+    commands:
+      - "lp user %player% parent add vip"
+    broadcast: "&6%player% &ais now VIP!"
+
+  # Economy reward at 10,000 XP
+  "10000":
+    commands:
+      - "eco give %player% 10000"
+    broadcast: "&b%player% &areached %threshold% XP and received &e10000$&a!"
+
+####################################################################
+# NOTES:
+#
+# - You may define as many reward thresholds as you want.
+# - Commands run as CONSOLE (no slash needed).
+# - You may include 1 or MANY commands per reward.
+# - The plugin remains BACKWARDS COMPATIBLE:
+#     command: "give %player% stone 1"
+#   still works, but “commands:” is recommended.
+####################################################################
