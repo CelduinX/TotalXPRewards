@@ -13,8 +13,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Handles the /totalxp command, providing subcommands to view, set, reset and reload
- * XP statistics. Permissions are checked based on totalxp.view and totalxp.admin.
+ * Handles the /totalxp command, providing subcommands to view, set, reset and
+ * reload XP statistics. Permissions are checked based on totalxp.view and
+ * totalxp.admin.
  */
 public class CommandTotalXP implements CommandExecutor, TabCompleter {
 
@@ -46,6 +47,12 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             case "reload":
                 handleReload(sender);
                 break;
+            case "show":
+                handleShow(sender);
+                break;
+            case "hide":
+                handleHide(sender);
+                break;
             default:
                 sendHelp(sender, label);
         }
@@ -54,11 +61,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Sends the help message lines to a command sender. The %label% placeholder
-     * is replaced with the actual command label used.
-     *
-     * @param sender the command sender
-     * @param label  the command label
+     * Sends the help message lines to a command sender.
      */
     private void sendHelp(CommandSender sender, String label) {
         List<String> lines = Lang.getList("help");
@@ -70,52 +73,62 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
         }
     }
 
-    /**
-     * Handles the /totalxp get subcommand to display a player's total XP.
-     */
+    private List<OfflinePlayer> resolveTargets(CommandSender sender, String arg) {
+        List<OfflinePlayer> targets = new ArrayList<>();
+        try {
+            List<org.bukkit.entity.Entity> entities = Bukkit.selectEntities(sender, arg);
+            for (org.bukkit.entity.Entity entity : entities) {
+                if (entity instanceof Player) {
+                    targets.add((Player) entity);
+                }
+            }
+        } catch (IllegalArgumentException | NoSuchMethodError ignored) {
+        }
+
+        if (targets.isEmpty()) {
+            OfflinePlayer target = Bukkit.getOfflinePlayer(arg);
+            if (target.hasPlayedBefore() || (target.getName() != null) || target.isOnline()) {
+                targets.add(target);
+            }
+        }
+        return targets;
+    }
+
     private void handleGet(CommandSender sender, String[] args) {
         if (!sender.hasPermission("totalxp.view")) {
             sender.sendMessage(Lang.get("no-permission"));
             return;
         }
-
         if (args.length < 2) {
             sendHelp(sender, "totalxp");
             return;
         }
-
-        String targetName = args[1];
-        OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
-        if (target == null || (target.getName() == null && !target.hasPlayedBefore())) {
+        List<OfflinePlayer> targets = resolveTargets(sender, args[1]);
+        if (targets.isEmpty()) {
             sender.sendMessage(Lang.get("player-not-found"));
             return;
         }
-        UUID uuid = target.getUniqueId();
-
-        long xp = plugin.getDatabase().getXp(uuid);
-        String msg = Lang.get("xp-view")
-                .replace("%player%", targetName)
-                .replace("%xp%", String.valueOf(xp));
-        sender.sendMessage(msg);
+        for (OfflinePlayer target : targets) {
+            UUID uuid = target.getUniqueId();
+            String name = target.getName() != null ? target.getName() : args[1];
+            long xp = plugin.getDatabase().getXp(uuid);
+            String msg = Lang.get("xp-view")
+                    .replace("%player%", name)
+                    .replace("%xp%", String.valueOf(xp));
+            sender.sendMessage(msg);
+        }
     }
 
-    /**
-     * Handles the /totalxp set subcommand to assign a player's total XP.
-     */
     private void handleSet(CommandSender sender, String[] args) {
         if (!sender.hasPermission("totalxp.admin")) {
             sender.sendMessage(Lang.get("no-permission"));
             return;
         }
-
         if (args.length < 3) {
             sendHelp(sender, "totalxp");
             return;
         }
-
-        String targetName = args[1];
         String amountStr = args[2];
-
         long amount;
         try {
             amount = Long.parseLong(amountStr);
@@ -127,60 +140,83 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             sender.sendMessage(Lang.get("invalid-number"));
             return;
         }
-
-        OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
-        if (target == null || (target.getName() == null && !target.hasPlayedBefore())) {
+        List<OfflinePlayer> targets = resolveTargets(sender, args[1]);
+        if (targets.isEmpty()) {
             sender.sendMessage(Lang.get("player-not-found"));
             return;
         }
-        UUID uuid = target.getUniqueId();
-
-        plugin.getDatabase().setXp(uuid, amount);
-        String msg = Lang.get("xp-set")
-                .replace("%player%", targetName)
-                .replace("%amount%", String.valueOf(amount));
-        sender.sendMessage(msg);
+        for (OfflinePlayer target : targets) {
+            UUID uuid = target.getUniqueId();
+            String name = target.getName() != null ? target.getName() : "?";
+            plugin.getDatabase().setXp(uuid, amount);
+            String msg = Lang.get("xp-set")
+                    .replace("%player%", name)
+                    .replace("%amount%", String.valueOf(amount));
+            sender.sendMessage(msg);
+            plugin.handleXpGain(target.isOnline() ? (Player) target : null, 0);
+            if (target.isOnline()) {
+                plugin.getBossBarManager().update((Player) target, amount);
+            }
+        }
     }
 
-    /**
-     * Handles the /totalxp reset subcommand to clear a player's total XP.
-     */
     private void handleReset(CommandSender sender, String[] args) {
         if (!sender.hasPermission("totalxp.admin")) {
             sender.sendMessage(Lang.get("no-permission"));
             return;
         }
-
         if (args.length < 2) {
             sendHelp(sender, "totalxp");
             return;
         }
-
-        String targetName = args[1];
-        OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
-        if (target == null || (target.getName() == null && !target.hasPlayedBefore())) {
+        List<OfflinePlayer> targets = resolveTargets(sender, args[1]);
+        if (targets.isEmpty()) {
             sender.sendMessage(Lang.get("player-not-found"));
             return;
         }
-        UUID uuid = target.getUniqueId();
-
-        plugin.getDatabase().resetPlayer(uuid);
-        String msg = Lang.get("xp-reset")
-                .replace("%player%", targetName);
-        sender.sendMessage(msg);
+        for (OfflinePlayer target : targets) {
+            UUID uuid = target.getUniqueId();
+            String name = target.getName() != null ? target.getName() : "?";
+            plugin.getDatabase().resetPlayer(uuid);
+            String msg = Lang.get("xp-reset").replace("%player%", name);
+            sender.sendMessage(msg);
+            if (target.isOnline()) {
+                plugin.getBossBarManager().update((Player) target, 0);
+            }
+        }
     }
 
-    /**
-     * Handles the /totalxp reload subcommand to reload config and language files.
-     */
     private void handleReload(CommandSender sender) {
         if (!sender.hasPermission("totalxp.admin")) {
             sender.sendMessage(Lang.get("no-permission"));
             return;
         }
-
         plugin.reloadSettings();
-        sender.sendMessage(Lang.get("reload-done"));
+        sender.sendMessage(Lang.get("prefix") + "Configuration reloaded.");
+    }
+
+    private void handleShow(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(Lang.get("prefix") + "Only players can use this command.");
+            return;
+        }
+        Player player = (Player) sender;
+        if (plugin.getBossBarManager() != null) {
+            plugin.getBossBarManager().showBar(player);
+            player.sendMessage(Lang.get("prefix") + "BossBar shown.");
+        }
+    }
+
+    private void handleHide(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(Lang.get("prefix") + "Only players can use this command.");
+            return;
+        }
+        Player player = (Player) sender;
+        if (plugin.getBossBarManager() != null) {
+            plugin.getBossBarManager().hideBar(player);
+            player.sendMessage(Lang.get("prefix") + "BossBar hidden.");
+        }
     }
 
     @Override
@@ -189,10 +225,18 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             String prefix = args[0].toLowerCase();
-            if ("get".startsWith(prefix)) result.add("get");
-            if ("set".startsWith(prefix) && sender.hasPermission("totalxp.admin")) result.add("set");
-            if ("reset".startsWith(prefix) && sender.hasPermission("totalxp.admin")) result.add("reset");
-            if ("reload".startsWith(prefix) && sender.hasPermission("totalxp.admin")) result.add("reload");
+            if ("get".startsWith(prefix))
+                result.add("get");
+            if ("set".startsWith(prefix) && sender.hasPermission("totalxp.admin"))
+                result.add("set");
+            if ("reset".startsWith(prefix) && sender.hasPermission("totalxp.admin"))
+                result.add("reset");
+            if ("reload".startsWith(prefix) && sender.hasPermission("totalxp.admin"))
+                result.add("reload");
+            if ("show".startsWith(prefix))
+                result.add("show");
+            if ("hide".startsWith(prefix))
+                result.add("hide");
             return result;
         }
 
@@ -201,6 +245,17 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
                 || args[0].equalsIgnoreCase("reset"))) {
 
             String namePrefix = args[1].toLowerCase();
+            if ("@a".startsWith(namePrefix))
+                result.add("@a");
+            if ("@p".startsWith(namePrefix))
+                result.add("@p");
+            if ("@r".startsWith(namePrefix))
+                result.add("@r");
+            if ("@s".startsWith(namePrefix))
+                result.add("@s");
+            if ("@e".startsWith(namePrefix))
+                result.add("@e");
+
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (p.getName().toLowerCase().startsWith(namePrefix)) {
                     result.add(p.getName());

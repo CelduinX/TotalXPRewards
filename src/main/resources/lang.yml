@@ -1,23 +1,38 @@
-# English language file for TotalXPRewards.
+# ==============================================================================
+# TotalXPRewards Language File
 #
-# This file contains all static messages used by the plugin. Server
-# administrators may customise these strings or translate them into
-# another language. Colour codes use & in place of §. The placeholder
-# "%label%" will be replaced with the base command label, and other
-# placeholders are left for the plugin to replace at runtime.
+# Customize the plugin's messages here.
+# Supports color codes using '&' (e.g. &a for green).
+# ==============================================================================
 
+# General Messages
+# ------------------------------------------------------------------------------
 prefix: "&7[&aTotalXP&7] "
-no-permission: "&cYou do not have permission."
-player-not-found: "&cPlayer not found."
-invalid-number: "&cPlease enter a valid number."
-negative-amount: "&cAmount must not be negative."
-xp-view: "&a%player% has &e%xp% &atotal XP."
-xp-set: "&aSet &e%player%&a's XP to &e%amount%."
-xp-reset: "&aReset XP of &e%player%&a."
-reload-done: "&aTotal XP Rewards config and language reloaded."
+reload-done: "&aConfiguration and language files reloaded successfully."
+
+# Error Messages
+# ------------------------------------------------------------------------------
+no-permission: "&cYou do not have permission to execute this command."
+player-not-found: "&cPlayer not found or never played before."
+invalid-number: "&cInvalid number. Please enter a valid integer."
+negative-amount: "&cXP amount cannot be negative."
+
+# XP Management Messages
+# ------------------------------------------------------------------------------
+xp-view: "&a%player% currently has &e%xp% &atotal XP."
+xp-set: "&aSuccessfully set &e%player%&a's total XP to &e%amount%."
+xp-reset: "&aSuccessfully reset total XP for &e%player%&a."
+
+# Help Menu
+# ------------------------------------------------------------------------------
 help:
-  - "&7---- &aTotal XP Rewards Help &7----"
-  - "&a/%label% get <player> &7- Show player's total XP"
-  - "&a/%label% set <player> <amount> &7- Set player's total XP"
-  - "&a/%label% reset <player> &7- Reset player's total XP"
-  - "&a/%label% reload &7- Reload config and language"
+  - "&8&m-------------------------------------------"
+  - "&a&lTotal XP Rewards &7v1.0.1"
+  - ""
+  - "&f/%label% get <player>       &7Check a player's total XP"
+  - "&f/%label% show               &7Show your BossBar"
+  - "&f/%label% hide               &7Hide your BossBar"
+  - "&c/%label% set <player> <xp>  &7Set a player's XP (Admin)"
+  - "&c/%label% reset <player>     &7Reset a player's XP (Admin)"
+  - "&c/%label% reload             &7Reload configuration (Admin)"
+  - "&8&m-------------------------------------------"

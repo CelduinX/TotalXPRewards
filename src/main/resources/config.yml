@@ -1,52 +1,76 @@
-####################################################################
-# TotalXPRewards configuration
+# ==============================================================================
+#  _______       _        _  __   __  _____    _____                                    _
+# |__   __|     | |      | | \ \ / / |  __ \  |  __ \                                  | |
+#    | |   ___  | |_ __ _| |  \ V /  | |__) | | |__) |  ___ __      __  __ _  _ __   __| | ___
+#    | |  / _ \ | __/ _` | |   > <   |  ___/  |  _  /  / _ \\ \ /\ / / / _` || '__| / _` |/ __|
+#    | | | (_) || || (_| | |  / . \  | |      | | \ \ |  __/ \ V  V / | (_| || |   | (_| |\__ \
+#    |_|  \___/  \__\__,_|_| /_/ \_\ |_|      |_|  \_\ \___|  \_/\_/   \__,_||_|    \__,_||___/
 #
-# This file defines the XP reward thresholds and associated commands
-# or broadcast messages. When a player reaches a threshold for the
-# first time, all configured commands are executed (in order) and the
-# broadcast message is sent to all players.
+# ==============================================================================
+# TotalXPRewards Configuration
 #
-# Commands and broadcasts support the following placeholders:
-#   %player%      - the player's name
-#   %xp%          - the player's new total XP
-#   %threshold%   - the threshold that was reached
+# AVAILABLE PLACEHOLDERS (Use these in messages, titles, and broadcasts):
+# ------------------------------------------------------------------------------
+# %player%        - The player's name
+# %xp%            - The player's total accumulated XP
+# %current_rank%  - Name of the current rank (e.g. "Level 1")
+# %next_rank%     - Name of the next rank (e.g. "Level 2")
+# %required_xp%   - XP required to reach the next rank
+# %threshold%     - The XP threshold (Only usable in Reward Broadcasts)
 #
-# If PlaceholderAPI is installed and enabled, additional placeholders
-# will be processed as well.
-####################################################################
+# PlaceholderAPI is fully supported if enabled below.
+# ==============================================================================
 
 settings:
-  # Enable PlaceholderAPI support (requires PlaceholderAPI plugin)
+  # Enable PlaceholderAPI support (requires PlaceholderAPI plugin to be installed)
   use-placeholderapi: true
 
+bossbar:
+  # Enable or disable the BossBar feature entirely
+  enabled: true
+
+  # The title of the BossBar. Supports all placeholders above.
+  title: "&bCurrent Rank: &e%current_rank% &7| &bNext Rank: &e%next_rank% &7(&a%xp%&7/&c%required_xp%&7)"
+
+  # Color of the BossBar.
+  # Valid values: BLUE, GREEN, PINK, PURPLE, RED, WHITE, YELLOW
+  color: BLUE
+
+  # Style of the BossBar.
+  # Valid values: SOLID, SEGMENTED_6, SEGMENTED_10, SEGMENTED_12, SEGMENTED_20
+  style: SOLID
+
+  # Dynamic Mode:
+  # If set to 'true', the BossBar will only appear when the player's XP changes (gains XP).
+  # It will remain visible for 'timeout' seconds and then disappear.
+  # If set to 'false', the BossBar will be permanently visible.
+  dynamic-mode: true
+
+  # Time in seconds before the BossBar hides itself (only used if dynamic-mode is true).
+  timeout: 10
+
 rewards:
-  # Example reward configuration using MULTIPLE commands:
-  # When a player reaches 1,000 total XP they receive a diamond and some money.
-  "1000":
+  # Configure rewards here. The key (e.g. '1000') is the XP threshold.
+  #
+  # 'name':      The display name of this rank (e.g. "Level 1"). Used in %current_rank%/%next_rank%.
+  # 'commands':  List of commands to run (without /). Run as CONSOLE.
+  # 'broadcast': Message to broadcast to the server when reached.
+
+  '1000':
+    name: "Novice"
     commands:
       - "give %player% diamond 1"
       - "eco give %player% 250"
     broadcast: "&a%player% reached %threshold% total XP (&e%xp%&a)!"
 
-  # Give the VIP rank at 5,000 XP
-  "5000":
+  '5000':
+    name: "Expert"
     commands:
-      - "lp user %player% parent add vip"
-    broadcast: "&6%player% &ais now VIP!"
+      - "give %player% emerald 5"
+    broadcast: "&6%player% is now an Expert!"
 
-  # Economy reward at 10,000 XP
-  "10000":
+  '10000':
+    name: "Master"
     commands:
       - "eco give %player% 10000"
     broadcast: "&b%player% &areached %threshold% XP and received &e10000$&a!"
-
-####################################################################
-# NOTES:
-#
-# - You may define as many reward thresholds as you want.
-# - Commands run as CONSOLE (no slash needed).
-# - You may include 1 or MANY commands per reward.
-# - The plugin remains BACKWARDS COMPATIBLE:
-#     command: "give %player% stone 1"
-#   still works, but “commands:” is recommended.
-####################################################################
