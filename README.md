@@ -10,18 +10,19 @@ Fully configurable, translation-ready, and built for modern Paper servers (1.21+
 - **Global Total XP Tracking** 📈
   - Tracks XP from killing mobs, mining, **and** vanilla commands (`/xp`, `/experience`).
   - Never resets, even after death.
+  - **Async Caching**: High-performance data handling prevents server lag.
 - **BossBar Progress System** 📊
   - Displays a customizable BossBar showing progress to the next rank.
   - **Dynamic Mode**: Auto-hides the bar when not gaining XP.
-  - **Rank Names**: Display custom names (e.g., "Novice") instead of just numbers.
+  - **Rich Text support**: Supports **MiniMessage** (Gradients, RGB) AND Legacy Color Codes (`&a`) simultaneously!
 - **Reward System** 🎁
   - Execute multiple commands when reaching a threshold.
   - Send custom broadcast messages.
   - Supports **Minecraft Target Selectors** in commands (e.g., `@a`, `@p`).
 - **Full Customization** 🛠️
   - **PlaceholderAPI** support.
-  - Complete language control via `lang.yml`.
-  - **SQLite** storage (no setup required).
+  - Complete language control via `lang.yml` (including "Max Rank" text).
+  - **SQLite** storage with automatic schema migration (external apps can read `current_rank`).
 
 ---
 
@@ -45,7 +46,8 @@ Fully configurable, translation-ready, and built for modern Paper servers (1.21+
 ```yaml
 bossbar:
   enabled: true
-  title: "&bCurrent Rank: &e%current_rank% &7| &bNext Rank: &e%next_rank% &7(&a%xp%&7/&c%required_xp%&7)"
+  # Hybrid Support: Mix Legacy (&) and MiniMessage (<gradient>)!
+  title: "&bCurrent Rank: &e%current_rank% &7| <gradient:blue:aqua>Next: %next_rank%</gradient> &7(&a%xp%&7/&c%required_xp%&7)"
   color: BLUE
   style: SOLID
   dynamic-mode: true # Bar appears on XP gain and hides after timeout
@@ -53,7 +55,7 @@ bossbar:
 
 rewards:
   "1000":
-    name: "Novice"
+    name: "<gradient:#2486B5:#3A816A>Novice</gradient>"
     commands:
       - "give %player% diamond 1"
       - "eco give %player% 250"
@@ -100,7 +102,9 @@ Available for use in **Chat**, **Broadcasts**, and **BossBar**:
 
 XP and reward history are stored via **SQLite**, located in:
 `plugins/TotalXPRewards/database.db`
-This requires **no external database setup**.
+
+**External Access**:
+The database now includes a `current_rank` and `username` column, making it easy to integrate with web leaderboards (e.g. Node.js apps).
 
 ---
 
