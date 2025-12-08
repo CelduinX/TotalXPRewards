@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'de.celduinx.totalxprewards'
-version = '1.0.1'
+version = '1.0.2'
 
 java {
     toolchain {
@@ -22,11 +22,14 @@ repositories {
 }
 
 dependencies {
-    // Paper API – wird nur zum Kompilieren benötigt, nicht mit in die JAR gepackt
+    // Paper API (includes Adventure & MiniMessage)
     compileOnly 'io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT'
 
-    // PlaceholderAPI – ebenfalls nur als Compile-Dependency
+    // PlaceholderAPI
     compileOnly 'me.clip:placeholderapi:2.11.5'
+    
+    // MiniMessage (Explicitly adding to ensure availability if not fully transitively exposing everything)
+    compileOnly 'net.kyori:adventure-text-minimessage:4.17.0'
 }
 
 processResources {

@@ -76,7 +76,8 @@ public class BossBarManager {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (enabled && !hiddenPlayers.contains(player.getUniqueId())) {
                 // Determine their XP and update/create bar
-                long xp = plugin.getDatabase().getXp(player.getUniqueId());
+                PlayerData data = plugin.getPlayerDataManager().getData(player.getUniqueId());
+                long xp = (data != null) ? data.getTotalXp() : 0;
                 update(player, xp);
             } else {
                 // If disabled or user hid it, remove bar
@@ -87,7 +88,8 @@ public class BossBarManager {
 
     public void showBar(Player player) {
         hiddenPlayers.remove(player.getUniqueId());
-        long xp = plugin.getDatabase().getXp(player.getUniqueId());
+        PlayerData data = plugin.getPlayerDataManager().getData(player.getUniqueId());
+        long xp = (data != null) ? data.getTotalXp() : 0;
         update(player, xp);
     }
 

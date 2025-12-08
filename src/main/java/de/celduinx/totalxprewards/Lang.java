@@ -13,7 +13,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Utility class for loading and retrieving translatable messages from a YAML file.
+ * Utility class for loading and retrieving translatable messages from a YAML
+ * file.
  *
  * <p>
  * This class loads {@code lang.yml} from the plugin's data folder, copying the
@@ -49,14 +50,14 @@ public final class Lang {
         defaults.put("xp-view", "&a%player% has &e%xp% &atotal XP.");
         defaults.put("xp-set", "&aSet &e%player%&a's XP to &e%amount%.");
         defaults.put("xp-reset", "&aReset XP of &e%player%&a.");
+        defaults.put("max-rank", "Max Rank");
         defaults.put("reload-done", "&aTotal XP Rewards config and language reloaded.");
         defaults.put("help", java.util.Arrays.asList(
                 "&7---- &aTotal XP Rewards Help &7----",
                 "&a/%label% get <player> &7- Show player's total XP",
                 "&a/%label% set <player> <amount> &7- Set player's total XP",
                 "&a/%label% reset <player> &7- Reset player's total XP",
-                "&a/%label% reload &7- Reload config and language"
-        ));
+                "&a/%label% reload &7- Reload config and language"));
 
         reload(plugin);
     }

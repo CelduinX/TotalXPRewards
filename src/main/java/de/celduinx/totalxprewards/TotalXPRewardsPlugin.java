@@ -7,6 +7,10 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import java.io.File;
 import java.util.List;
 import java.util.Map;
@@ -27,11 +31,13 @@ import java.util.UUID;
  */
 public final class TotalXPRewardsPlugin extends JavaPlugin {
 
+    private static final int CONFIG_VERSION = 1;
     private static TotalXPRewardsPlugin instance;
 
     private XPDatabase database;
     private final Map<Long, Reward> rewards = new TreeMap<>();
     private BossBarManager bossBarManager;
+    private PlayerDataManager playerDataManager;
 
     /**
      * Gets the singleton instance of this plugin.
@@ -60,6 +66,9 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
 
         // Init SQLite
         this.database = new XPDatabase(this);
+
+        // Init Cache Manager
+        this.playerDataManager = new PlayerDataManager(this);
 
         // Load config + language + rewards
         reloadSettings();
@@ -96,44 +105,52 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         // Load directly from disk to ensure we have the latest
         org.bukkit.configuration.file.YamlConfiguration config = org.bukkit.configuration.file.YamlConfiguration
                 .loadConfiguration(configFile);
+
+        int currentVersion = config.getInt("config-version", 0);
         boolean changed = false;
 
-        getLogger().info("Checking config for migration...");
+        if (currentVersion < CONFIG_VERSION) {
+            getLogger().info("Migrating configuration from v" + currentVersion + " to v" + CONFIG_VERSION + "...");
 
-        // Validating BossBar section (v1.0.1)
-        if (!config.isConfigurationSection("bossbar")) {
-            getLogger().info("Migrating config: Adding missing 'bossbar' section...");
-            config.set("bossbar.enabled", true);
-            config.set("bossbar.dynamic-mode", false);
-            config.set("bossbar.timeout", 10);
-            config.set("bossbar.title", "&bNext Rank: &e%next_rank% &7(&a%xp%&7/&c%required_xp%&7)");
-            config.set("bossbar.color", "BLUE");
-            config.set("bossbar.style", "SOLID");
-            changed = true;
-        } else {
-            // Check for new keys in existing section (for v1.0.3 update)
-            if (!config.contains("bossbar.dynamic-mode")) {
-                getLogger().info("Migrating config: Adding missing 'bossbar.dynamic-mode'...");
-                config.set("bossbar.dynamic-mode", false);
-                changed = true;
-            }
-            if (!config.contains("bossbar.timeout")) {
-                getLogger().info("Migrating config: Adding missing 'bossbar.timeout'...");
-                config.set("bossbar.timeout", 10);
-                changed = true;
-            }
-        }
+            // Migration Steps
+            if (currentVersion < 1) {
+                // Pre-versioning migration (add bossbar, update rewards)
 
-        // Validating Reward Names (v1.0.2 presumably)
-        ConfigurationSection rewardsSection = config.getConfigurationSection("rewards");
-        if (rewardsSection != null) {
-            for (String key : rewardsSection.getKeys(false)) {
-                if (!rewardsSection.contains(key + ".name")) {
-                    getLogger().info("Migrating config: Adding missing name for reward " + key);
-                    rewardsSection.set(key + ".name", "Rank " + key);
+                // BossBar Section check
+                if (!config.isConfigurationSection("bossbar")) {
+                    config.set("bossbar.enabled", true);
+                    config.set("bossbar.dynamic-mode", false);
+                    config.set("bossbar.timeout", 10);
+                    config.set("bossbar.title", "&bNext Rank: &e%next_rank% &7(&a%xp%&7/&c%required_xp%&7)");
+                    config.set("bossbar.color", "BLUE");
+                    config.set("bossbar.style", "SOLID");
                     changed = true;
+                } else {
+                    if (!config.contains("bossbar.dynamic-mode")) {
+                        config.set("bossbar.dynamic-mode", false);
+                        changed = true;
+                    }
+                    if (!config.contains("bossbar.timeout")) {
+                        config.set("bossbar.timeout", 10);
+                        changed = true;
+                    }
+                }
+
+                // Reward Names check
+                ConfigurationSection rewardsSection = config.getConfigurationSection("rewards");
+                if (rewardsSection != null) {
+                    for (String key : rewardsSection.getKeys(false)) {
+                        if (!rewardsSection.contains(key + ".name")) {
+                            config.set("rewards." + key + ".name", "Rank " + key);
+                            changed = true;
+                        }
+                    }
                 }
             }
+
+            // Mark validation as done by updating version
+            config.set("config-version", CONFIG_VERSION);
+            changed = true;
         }
 
         if (changed) {
@@ -145,17 +162,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             } catch (java.io.IOException e) {
                 getLogger().severe("Could not save migrated config: " + e.getMessage());
             }
-        } else {
-            getLogger().info("Config is up to date.");
         }
-    }
-
-    @Override
-    public void onDisable() {
-        if (database != null) {
-            database.close();
-        }
-        getLogger().info("TotalXPRewards disabled.");
     }
 
     /**
@@ -229,6 +236,10 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         return bossBarManager;
     }
 
+    public PlayerDataManager getPlayerDataManager() {
+        return playerDataManager;
+    }
+
     /**
      * Handles an XP gain event.
      */
@@ -238,9 +249,19 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         }
 
         UUID uuid = player.getUniqueId();
-        long current = database.getXp(uuid);
-        long newTotal = current + amount;
-        database.setXp(uuid, newTotal);
+        PlayerData data = playerDataManager.getData(uuid);
+        if (data == null)
+            return; // Should not happen if online
+
+        data.addXp(amount);
+        long newTotal = data.getTotalXp();
+
+        // Update cached rank name for DB consistency
+        data.setCurrentRankName(getRankName(newTotal));
+
+        long current = newTotal - amount;
+
+        // We do NOT save to DB here instantly anymore. Caching handles it.
 
         // Update BossBar
         if (bossBarManager != null) {
@@ -300,34 +321,38 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     /**
      * Applies placeholders + color codes.
      */
-    /**
-     * Applies placeholders + color codes.
-     */
-    /**
-     * Applies placeholders + color codes.
-     */
     public String format(Player player, String text, long xp, long threshold, boolean colour) {
+        Component comp = formatToComponent(player, text, xp, threshold);
+        // Serialize to Legacy String with Hex support
+        return LegacyComponentSerializer.legacySection().serialize(comp);
+    }
+
+    public String getRankName(long xp) {
+        String currentRankName = "None"; // Default if no rank
+        // Iterate rewards to find the highest threshold <= xp
+        for (Map.Entry<Long, Reward> entry : rewards.entrySet()) {
+            if (entry.getKey() <= xp) {
+                currentRankName = entry.getValue().getName();
+            } else {
+                break;
+            }
+        }
+        return currentRankName;
+    }
+
+    public Component formatToComponent(Player player, String text, long xp, long threshold) {
         if (text == null || text.isEmpty()) {
-            return text;
+            return Component.empty();
         }
 
         // 1. Calculate %current_rank% if needed
         if (text.contains("%current_rank%")) {
-            String currentRankName = "None"; // Default if no rank
-            // Iterate rewards to find the highest threshold <= xp
-            for (Map.Entry<Long, Reward> entry : rewards.entrySet()) {
-                if (entry.getKey() <= xp) {
-                    currentRankName = entry.getValue().getName();
-                } else {
-                    break;
-                }
-            }
-            text = text.replace("%current_rank%", currentRankName);
+            text = text.replace("%current_rank%", getRankName(xp));
         }
 
         // 2. Calculate %next_rank% and %required_xp% if needed
         if (text.contains("%next_rank%") || text.contains("%required_xp%")) {
-            String nextRankName = "Max Rank";
+            String nextRankName = Lang.get("max-rank");
             long nextThresholdVal = -1;
 
             for (Map.Entry<Long, Reward> entry : rewards.entrySet()) {
@@ -338,17 +363,11 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 }
             }
 
-            // If nextThresholdVal is still -1, it means we are at max rank.
-            // We can display "Max Rank" for name, and maybe handled required_xp elegantly?
-            // For now, let's just replace them.
             text = text.replace("%next_rank%", nextRankName);
 
             if (nextThresholdVal != -1) {
                 text = text.replace("%required_xp%", String.valueOf(nextThresholdVal));
             } else {
-                // For max rank, required xp is undefined. Let's start with empty or "0" or
-                // "Max".
-                // "0" is safe for math but might be confusing. "Max" is better for text.
                 text = text.replace("%required_xp%", "0");
             }
         }
@@ -367,12 +386,54 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             }
         }
 
-        // 5. Colors
-        if (colour) {
-            text = ChatColor.translateAlternateColorCodes('&', text);
+        // 5. Parse
+        // Hybrid Support:
+        // If the text contains legacy '&' codes, we convert them to MiniMessage tags
+        // FIRST.
+        // This allows mixed usage (e.g. "&bTitle: <gradient>...") to work correctly.
+        if (text.contains("&")) {
+            text = convertLegacyToMiniMessage(text);
         }
 
-        return text;
+        return MiniMessage.miniMessage().deserialize(text);
+    }
+
+    private String convertLegacyToMiniMessage(String text) {
+        return text.replace("&0", "<black>")
+                .replace("&1", "<dark_blue>")
+                .replace("&2", "<dark_green>")
+                .replace("&3", "<dark_aqua>")
+                .replace("&4", "<dark_red>")
+                .replace("&5", "<dark_purple>")
+                .replace("&6", "<gold>")
+                .replace("&7", "<gray>")
+                .replace("&8", "<dark_gray>")
+                .replace("&9", "<blue>")
+                .replace("&a", "<green>")
+                .replace("&b", "<aqua>")
+                .replace("&c", "<red>")
+                .replace("&d", "<light_purple>")
+                .replace("&e", "<yellow>")
+                .replace("&f", "<white>")
+                .replace("&k", "<obfuscated>")
+                .replace("&l", "<bold>")
+                .replace("&m", "<strikethrough>")
+                .replace("&n", "<underlined>")
+                .replace("&o", "<italic>")
+                .replace("&r", "<reset>")
+                // Handle uppercase variants
+                .replace("&A", "<green>")
+                .replace("&B", "<aqua>")
+                .replace("&C", "<red>")
+                .replace("&D", "<light_purple>")
+                .replace("&E", "<yellow>")
+                .replace("&F", "<white>")
+                .replace("&K", "<obfuscated>")
+                .replace("&L", "<bold>")
+                .replace("&M", "<strikethrough>")
+                .replace("&N", "<underlined>")
+                .replace("&O", "<italic>")
+                .replace("&R", "<reset>");
     }
 
     /**

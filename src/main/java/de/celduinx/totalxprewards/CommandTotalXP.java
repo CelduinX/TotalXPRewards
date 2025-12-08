@@ -111,7 +111,17 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
         for (OfflinePlayer target : targets) {
             UUID uuid = target.getUniqueId();
             String name = target.getName() != null ? target.getName() : args[1];
-            long xp = plugin.getDatabase().getXp(uuid);
+
+            long xp;
+            PlayerData data = plugin.getPlayerDataManager().getData(uuid);
+            if (data != null) {
+                // Online/Cached
+                xp = data.getTotalXp();
+            } else {
+                // Offline fallback
+                xp = plugin.getDatabase().getXp(uuid);
+            }
+
             String msg = Lang.get("xp-view")
                     .replace("%player%", name)
                     .replace("%xp%", String.valueOf(xp));
@@ -148,12 +158,27 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
         for (OfflinePlayer target : targets) {
             UUID uuid = target.getUniqueId();
             String name = target.getName() != null ? target.getName() : "?";
-            plugin.getDatabase().setXp(uuid, amount);
+
+            PlayerData data = plugin.getPlayerDataManager().getData(uuid);
+            if (data != null) {
+                // Online/Cached
+                data.setTotalXp(amount);
+                data.setCurrentRankName(plugin.getRankName(amount));
+
+                Bukkit.getScheduler().runTaskAsynchronously(plugin,
+                        () -> plugin.getDatabase().setPlayerData(uuid, amount, name, data.getCurrentRankName()));
+            } else {
+                // Offline
+                String rankName = plugin.getRankName(amount);
+                plugin.getDatabase().setPlayerData(uuid, amount, name, rankName);
+            }
+
             String msg = Lang.get("xp-set")
                     .replace("%player%", name)
                     .replace("%amount%", String.valueOf(amount));
             sender.sendMessage(msg);
-            plugin.handleXpGain(target.isOnline() ? (Player) target : null, 0);
+
+            // If online, update bossbar
             if (target.isOnline()) {
                 plugin.getBossBarManager().update((Player) target, amount);
             }
@@ -177,7 +202,14 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
         for (OfflinePlayer target : targets) {
             UUID uuid = target.getUniqueId();
             String name = target.getName() != null ? target.getName() : "?";
+
             plugin.getDatabase().resetPlayer(uuid);
+
+            PlayerData data = plugin.getPlayerDataManager().getData(uuid);
+            if (data != null) {
+                data.setTotalXp(0);
+            }
+
             String msg = Lang.get("xp-reset").replace("%player%", name);
             sender.sendMessage(msg);
             if (target.isOnline()) {

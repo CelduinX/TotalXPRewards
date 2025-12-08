@@ -1,3 +1,4 @@
+lang-version: 1
 # ==============================================================================
 # TotalXPRewards Language File
 #
@@ -22,6 +23,7 @@ negative-amount: "&cXP amount cannot be negative."
 xp-view: "&a%player% currently has &e%xp% &atotal XP."
 xp-set: "&aSuccessfully set &e%player%&a's total XP to &e%amount%."
 xp-reset: "&aSuccessfully reset total XP for &e%player%&a."
+max-rank: "Max Rank"
 
 # Help Menu
 # ------------------------------------------------------------------------------
