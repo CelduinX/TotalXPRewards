@@ -12,6 +12,8 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -25,13 +27,13 @@ import java.util.UUID;
  * and resets) and issues rewards when configured thresholds are reached.
  * XP is stored in a SQLite database for persistency. Administrators can
  * configure reward thresholds and associated console commands and broadcast
- * messages in {@code config.yml}, and can localise static messages via
+ * messages in {@code ranks.yml}, and can localise static messages via
  * {@code lang.yml}.
  * </p>
  */
 public final class TotalXPRewardsPlugin extends JavaPlugin {
 
-    private static final int CONFIG_VERSION = 2;
+    private static final int CONFIG_VERSION = 3;
     private static TotalXPRewardsPlugin instance;
 
     private XPDatabase database;
@@ -59,12 +61,16 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         instance = this;
 
         // Copy default config and language file from JAR
+        boolean freshInstall = !new File(getDataFolder(), "config.yml").exists();
         saveDefaultConfig();
+        if (freshInstall && !new File(getDataFolder(), "ranks.yml").exists()) {
+            saveResource("ranks.yml", false);
+        }
         if (!new java.io.File(getDataFolder(), "lang.yml").exists()) {
             saveResource("lang.yml", false);
         }
 
-        // Migrate config (e.g. v1.0.0 -> v1.0.1 -> v1.0.2)
+        // Migrate settings and extract legacy rewards into ranks.yml.
         migrateConfig();
 
         // Initialise language manager
@@ -192,9 +198,49 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 }
             }
 
+            if (currentVersion < 3) {
+                ConfigurationSection oldRewards = config.getConfigurationSection("rewards");
+                File ranksFile = new File(getDataFolder(), "ranks.yml");
+                if (oldRewards != null) {
+                    if (ranksFile.exists()) {
+                        throw new IllegalArgumentException("Both legacy config.yml rewards and ranks.yml exist; resolve before migration");
+                    }
+                    File backup = new File(getDataFolder(), "config.before-ranks-v3.yml");
+                    try {
+                        Files.copy(configFile.toPath(), backup.toPath());
+                    } catch (java.nio.file.FileAlreadyExistsException ignored) {
+                        // Keep the original migration backup on repeated attempts.
+                    } catch (IOException e) {
+                        throw new IllegalStateException("Could not back up config.yml before rank migration", e);
+                    }
+                    org.bukkit.configuration.file.YamlConfiguration ranks = new org.bukkit.configuration.file.YamlConfiguration();
+                    for (String path : oldRewards.getKeys(true)) {
+                        if (!oldRewards.isConfigurationSection(path)) {
+                            ranks.set("rewards." + path, oldRewards.get(path));
+                        }
+                    }
+                    try {
+                        ranks.save(ranksFile);
+                    } catch (IOException e) {
+                        throw new IllegalStateException("Could not write ranks.yml; config.yml was not changed", e);
+                    }
+                    config.set("rewards", null);
+                    changed = true;
+                } else if (!ranksFile.exists()) {
+                    throw new IllegalArgumentException("Missing both legacy rewards and ranks.yml");
+                }
+            }
+
             // Mark validation as done by updating version
             config.set("config-version", CONFIG_VERSION);
             changed = true;
+        }
+
+        if (config.isConfigurationSection("rewards")) {
+            throw new IllegalArgumentException("Rewards belong in ranks.yml, not config.yml");
+        }
+        if (!new File(getDataFolder(), "ranks.yml").isFile()) {
+            throw new IllegalArgumentException("Missing ranks.yml");
         }
 
         if (changed) {
@@ -220,13 +266,24 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             throw new IllegalArgumentException("Cannot read config.yml: " + e.getMessage(), e);
         }
         ProgressionSettings candidate = ProgressionSettings.read(disk.getConfigurationSection("progression"));
+        if (disk.isConfigurationSection("rewards")) {
+            throw new IllegalArgumentException("Rewards belong in ranks.yml, not config.yml");
+        }
+        org.bukkit.configuration.file.YamlConfiguration rankDisk = new org.bukkit.configuration.file.YamlConfiguration();
+        try {
+            rankDisk.load(new File(getDataFolder(), "ranks.yml"));
+        } catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException e) {
+            throw new IllegalArgumentException("Cannot read ranks.yml: " + e.getMessage(), e);
+        }
+        Map<Long, Reward> candidateRewards = loadRewards(rankDisk.getConfigurationSection("rewards"));
         if (progressionService != null) {
             for (Player p : Bukkit.getOnlinePlayers()) progressionService.settlePlayer(p);
         }
         reloadConfig();
         progressionSettings = candidate;
         Lang.reload(this);
-        loadRewards();
+        rewards.clear();
+        rewards.putAll(candidateRewards);
         if (rankGroups != null) rankGroups.validate(rewards);
         if (bossBarManager != null) {
             bossBarManager.reload();
@@ -234,16 +291,14 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     }
 
     /**
-     * Parses reward thresholds and commands from config.yml.
+     * Parses reward thresholds and commands from ranks.yml.
      */
-    private void loadRewards() {
-        rewards.clear();
-
-        ConfigurationSection section = getConfig().getConfigurationSection("rewards");
+    private Map<Long, Reward> loadRewards(ConfigurationSection section) {
         if (section == null) {
-            getLogger().warning("No rewards section found in config.yml");
-            return;
+            throw new IllegalArgumentException("No rewards section found in ranks.yml");
         }
+
+        Map<Long, Reward> candidate = new TreeMap<>();
 
         for (String key : section.getKeys(false)) {
             try {
@@ -275,14 +330,15 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 }
 
                 Reward reward = new Reward(threshold, commands, broadcast, name, group);
-                rewards.put(threshold, reward);
+                candidate.put(threshold, reward);
 
             } catch (NumberFormatException e) {
                 getLogger().warning("Invalid reward key (not numeric): " + key);
             }
         }
 
-        getLogger().info("Loaded " + rewards.size() + " rewards from config.");
+        getLogger().info("Loaded " + candidate.size() + " rewards from ranks.yml.");
+        return candidate;
     }
 
     public XPDatabase getDatabase() {

@@ -51,7 +51,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--server", type=Path, required=True)
     parser.add_argument("--stop", action="store_true")
-    parser.add_argument("--expected-version", default="1.1.1")
+    parser.add_argument("--expected-version", default="1.3.0")
     args = parser.parse_args()
     root = args.server.resolve()
     properties = {}
@@ -74,7 +74,7 @@ def main():
     else:
         raise RuntimeError(f"Paper with TotalXPRewards {args.expected_version} did not become ready")
     # Startup may intentionally migrate the config; reload must leave it unchanged.
-    protected = [root / "plugins/TotalXPRewards" / name for name in ("config.yml", "lang.yml")]
+    protected = [root / "plugins/TotalXPRewards" / name for name in ("config.yml", "ranks.yml", "lang.yml")]
     hashes = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in protected}
     try:
         for text in ("version TotalXPRewards", "totalxp", "totalxp reload", "totalxp get @a", "totalxp status @a",

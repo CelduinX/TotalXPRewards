@@ -9,6 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -18,6 +19,45 @@ import static org.mockito.Mockito.*;
 
 class PersistenceTest {
     @TempDir Path directory;
+
+    @Test void migratesExistingRankDefinitionsWithoutReplacingServerSettings() throws Exception {
+        Path config = directory.resolve("config.yml");
+        String original = "config-version: 2\nsettings:\n  use-placeholderapi: false\n"
+                + "bossbar:\n  color: PURPLE\nrewards:\n  '160':\n    group: initiat\n"
+                + "    name: '&7Initiat'\n    commands:\n      - 'give %player% diamond 1'\n"
+                + "    broadcast: '&aRank reached'\nprogression:\n  enabled: true\n";
+        Files.writeString(config, original);
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("RankMigrationTest"));
+        var method = TotalXPRewardsPlugin.class.getDeclaredMethod("migrateConfig");
+        method.setAccessible(true);
+        method.invoke(plugin);
+        var settings = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(config.toFile());
+        var ranks = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(directory.resolve("ranks.yml").toFile());
+        assertEquals(3, settings.getInt("config-version"));
+        assertFalse(settings.getBoolean("settings.use-placeholderapi"));
+        assertEquals("PURPLE", settings.getString("bossbar.color"));
+        assertFalse(settings.contains("rewards"));
+        assertEquals("initiat", ranks.getString("rewards.160.group"));
+        assertEquals("&7Initiat", ranks.getString("rewards.160.name"));
+        assertEquals(List.of("give %player% diamond 1"), ranks.getStringList("rewards.160.commands"));
+        assertEquals(original, Files.readString(directory.resolve("config.before-ranks-v3.yml")));
+    }
+
+    @Test void conflictingRankFilesLeaveLegacyConfigurationUntouched() throws Exception {
+        Path config = directory.resolve("config.yml");
+        String original = "config-version: 2\nrewards:\n  '160':\n    group: initiat\n";
+        Files.writeString(config, original);
+        Files.writeString(directory.resolve("ranks.yml"), "rewards:\n  '280':\n    group: neuling\n");
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("RankConflictTest"));
+        var method = TotalXPRewardsPlugin.class.getDeclaredMethod("migrateConfig");
+        method.setAccessible(true);
+        assertThrows(java.lang.reflect.InvocationTargetException.class, () -> method.invoke(plugin));
+        assertEquals(original, Files.readString(config));
+    }
 
     @Test void oldDatabaseMigratesWithoutChangingXpOrRewards() throws Exception {
         UUID uuid = UUID.randomUUID();

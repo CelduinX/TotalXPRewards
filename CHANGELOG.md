@@ -66,3 +66,9 @@
 * Set rank group display names, prefixes and weights below moderator/admin through the LuckPerms API.
 * Report old XP group users without direct `spieler`; never infer an unlock or replay item rewards.
 * Add guest, rank transition and independent group tests.
+# TotalXPRewards v1.3.0 - Separate rank configuration
+
+* Move the 100 rank definitions and rewards from `config.yml` into `ranks.yml`.
+* Migrate legacy `config.yml` rewards on startup after backing up the existing file; preserve their values and reward history.
+* Reject simultaneous legacy rewards and a separate rank file for manual review.
+* Reload both files together and reject invalid rank YAML before replacing active ranks.

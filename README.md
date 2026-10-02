@@ -6,19 +6,27 @@ Fully configurable, translation-ready, and built for Paper 26.2 (Java 25).
 ## Building and updating
 
 With JDK 25 installed, run `./gradlew build` (`gradlew.bat build` on Windows).
-The plugin JAR is written to `build/libs/TotalXPRewards-1.2.0.jar`.
+The plugin JAR is written to `build/libs/TotalXPRewards-1.3.0.jar`.
 The build runs regression tests for budgets, activity, farms, commands, rewards and SQLite persistence.
 
 Stop the server before replacing the old TotalXPRewards JAR. Keep the existing
-`plugins/TotalXPRewards` folder, including `config.yml`, `lang.yml`, and
+`plugins/TotalXPRewards` folder, including `config.yml`, `ranks.yml`, `lang.yml`, and
 `totalxp.db`. Version 1.1.0 adds a `progression` config section and a
 `player_progression` SQLite table. Existing XP, reward history and custom ranks are retained.
 
 Version 1.2.0 requires LuckPerms and an explicit `group` for every reward threshold.
 The bundled configuration maps all 100 thresholds to existing server groups;
 create those groups in LuckPerms before using this configuration elsewhere.
-Existing installations must add their own explicit mappings to `config.yml`.
+Existing installations must add their own explicit mappings to `ranks.yml`.
 Missing groups disable rank progression. Keep `totalxp.db` and its reward history.
+
+Version 1.3.0 moves every rank and reward definition into `ranks.yml`.
+`config.yml` retains general settings. On upgrade from an older configuration,
+the plugin backs up `config.yml`, writes its `rewards` section to `ranks.yml`,
+then removes that section from `config.yml`. If both files already define ranks,
+startup stops for manual review rather than choosing one silently. Back up both
+files before upgrading; the server's existing values take priority over the
+bundled defaults.
 
 ## SelfUnlock and LuckPerms ranks (1.2.0)
 
@@ -27,7 +35,7 @@ rank rewards. Effective inheritance and permissions do not count. Vanilla XP is
 unchanged. SelfUnlock should grant `spieler` with `lp user {uuid} parent add spieler`
 and use a private, strong password. TotalXPRewards never grants `spieler`.
 
-Each reward threshold has an explicit LuckPerms group, for example:
+Each reward threshold in `ranks.yml` has an explicit LuckPerms group, for example:
 
 ```yaml
 rewards:
@@ -165,7 +173,7 @@ titles remain unchanged on upgrade; the new defaults can be copied manually.
 
 ## ⚙️ Configuration
 
-### `config.yml` (example)
+### `config.yml` (settings example)
 
 ```yaml
 bossbar:
@@ -176,9 +184,14 @@ bossbar:
   style: SOLID
   dynamic-mode: true # Bar appears on XP gain and hides after timeout
   timeout: 10
+```
 
+### `ranks.yml` (rank and reward example)
+
+```yaml
 rewards:
   "1000":
+    group: xp_novice
     name: "<gradient:#2486B5:#3A816A>Novice</gradient>"
     commands:
       - "give %player% diamond 1"
@@ -186,6 +199,7 @@ rewards:
     broadcast: "&a%player% reached %threshold% XP (Novice)!"
 
   "50000":
+    group: xp_master
     name: "Master"
     commands:
       - "give %player% netherite_ingot 1"
