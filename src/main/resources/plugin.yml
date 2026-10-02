@@ -8,7 +8,7 @@ softdepend: [PlaceholderAPI]
 commands:
   totalxp:
     description: Manage and view total XP.
-    usage: /<command> <get|set|reset|reload|show|hide> ...
+    usage: /<command> <get|status|set|reset|reload|show|hide> ...
     aliases: [txp]
     permission: totalxp.use
 permissions:

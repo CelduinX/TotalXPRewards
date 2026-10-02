@@ -26,7 +26,7 @@ public class XPListener implements Listener {
         if (amount <= 0) {
             return;
         }
-        plugin.handleXpGain(event.getPlayer(), amount);
+        plugin.handleXpGain(event.getPlayer(), amount, event.getSource());
         if (beforeXp.containsKey(event.getPlayer().getUniqueId())) {
             naturalGains.merge(event.getPlayer().getUniqueId(), amount, Integer::sum);
         }

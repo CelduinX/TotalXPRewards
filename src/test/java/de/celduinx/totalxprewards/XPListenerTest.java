@@ -50,7 +50,7 @@ class XPListenerTest {
             listener.onPlayerExpChange(new PlayerExpChangeEvent(player, null, 5));
             xp.set(15);
             task.get().run();
-            verify(plugin).handleXpGain(player, 5);
+            verify(plugin).handleXpGain(player, 5, null);
             verify(plugin).handleXpGain(player, 10);
             verifyNoMoreInteractions(plugin);
         }

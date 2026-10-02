@@ -55,6 +55,9 @@ public class PlayerDataManager implements Listener {
         dataMap.computeIfAbsent(uuid, key -> {
             long xp = plugin.getDatabase().getXp(uuid);
             PlayerData data = new PlayerData(uuid, name, xp);
+            ProgressionSettings settings = plugin.getProgressionSettings();
+            data.setProgression(plugin.getDatabase().getProgression(uuid,
+                    settings == null ? 1000 : settings.capacity()));
             // Calculate Rank
             String rank = plugin.getRankName(xp);
             data.setCurrentRankName(rank);
@@ -64,10 +67,14 @@ public class PlayerDataManager implements Listener {
     }
 
     private void saveAndRemove(UUID uuid) {
-        PlayerData data = dataMap.remove(uuid);
+        PlayerData data = dataMap.get(uuid);
         if (data != null) {
+            org.bukkit.entity.Player player = Bukkit.getPlayer(uuid);
+            if (player != null && plugin.getProgressionService() != null)
+                plugin.getProgressionService().settlePlayer(player);
             // Finish saving before a reconnect or server shutdown can reload/close it.
-            plugin.getDatabase().setPlayerData(uuid, data.getTotalXp(), data.getName(), data.getCurrentRankName());
+            plugin.getDatabase().saveData(data);
+            dataMap.remove(uuid, data);
 
             // Cleanup BossBar
             if (data.getBossBar() != null) {
@@ -78,8 +85,7 @@ public class PlayerDataManager implements Listener {
 
     public void saveAll() {
         for (PlayerData data : dataMap.values()) {
-            plugin.getDatabase().setPlayerData(data.getUuid(), data.getTotalXp(), data.getName(),
-                    data.getCurrentRankName());
+            plugin.getDatabase().saveData(data);
         }
     }
 

@@ -1,4 +1,4 @@
-config-version: 1
+config-version: 2
 # ==============================================================================
 #  _______       _        _  __   __  _____    _____                                    _
 # |__   __|     | |      | | \ \ / / |  __ \  |  __ \                                  | |
@@ -17,6 +17,12 @@ config-version: 1
 # %current_rank%  - Name of the current rank (e.g. "Level 1")
 # %next_rank%     - Name of the next rank (e.g. "Level 2")
 # %required_xp%   - XP required to reach the next rank
+# %rank_number%   - Current rank number (0 before the first rank)
+# %rank_count%    - Total number of configured ranks
+# %rank_xp%       - XP earned since the current rank began (resets at rank-up)
+# %rank_required_xp% - XP needed from the current rank to the next rank
+# %rank_remaining_xp% - XP still missing until the next rank
+# %xp% and %required_xp% retain their cumulative values for compatibility.
 # %threshold%     - The XP threshold (Only usable in Reward Broadcasts)
 #
 # PlaceholderAPI is fully supported if enabled below.
@@ -26,12 +32,29 @@ settings:
   # Enable PlaceholderAPI support (requires PlaceholderAPI plugin to be installed)
   use-placeholderapi: true
 
+# Only rank XP is limited. Vanilla XP, mending and enchanting stay unchanged.
+progression:
+  enabled: true
+  budget-capacity: 1000
+  refill-per-active-hour: 500
+  activity-timeout-seconds: 120
+  farm:
+    enabled: true
+    window-seconds: 300
+    radius: 24
+    kill-threshold: 30
+    factor: 0.10
+
 bossbar:
   # Enable or disable the BossBar feature entirely
   enabled: true
 
   # The title of the BossBar. Supports all placeholders above.
-  title: "&bCurrent Rank: &e%current_rank% &7| &bNext Rank: &e%next_rank% &7(&a%xp%&7/&c%required_xp%&7)"
+  title: "&e%current_rank%&r &7· Rang %rank_number%/%rank_count% &7→ &e%next_rank%&r &7· &a%rank_xp%&7/&e%rank_required_xp% &7XP"
+
+  # Fully configurable titles for the highest rank and an empty rewards list.
+  max-rank-title: "&e%current_rank%&r &7· Rang %rank_number%/%rank_count% &7· Höchster Rang erreicht"
+  no-ranks-title: "&7Keine Ränge konfiguriert"
 
   # Color of the BossBar.
   # Valid values: BLUE, GREEN, PINK, PURPLE, RED, WHITE, YELLOW

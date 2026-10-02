@@ -1,22 +1,97 @@
 # Total XP Rewards
 
-A powerful and lightweight Paper plugin that tracks each player's **lifetime XP** and executes **custom rewards** when XP milestones are reached.
+A Paper plugin that tracks each player's **rank XP** and executes **custom rewards** when milestones are reached. Vanilla XP remains unchanged.
 Fully configurable, translation-ready, and built for Paper 26.2 (Java 25).
 
 ## Building and updating
 
 With JDK 25 installed, run `./gradlew build` (`gradlew.bat build` on Windows).
-The plugin JAR is written to `build/libs/TotalXPRewards-1.0.3.jar`.
-The build runs regression tests for XP commands and SQLite persistence.
+The plugin JAR is written to `build/libs/TotalXPRewards-1.1.1.jar`.
+The build runs regression tests for budgets, activity, farms, commands, rewards and SQLite persistence.
 
 Stop the server before replacing the old TotalXPRewards JAR. Keep the existing
 `plugins/TotalXPRewards` folder, including `config.yml`, `lang.yml`, and
-`totalxp.db`. Version 1.0.3 uses the same configuration and database schema.
+`totalxp.db`. Version 1.1.0 adds a `progression` config section and a
+`player_progression` SQLite table. Existing XP, reward history and custom ranks are retained.
 
 For a running local server with RCON already enabled, run
 `python tools/paper_smoke_test.py --server ../../server --stop` to check plugin
 startup, console commands, reload, and config preservation, then stop gracefully.
 This smoke test does not exercise a real player's in-game interactions.
+
+## Rank progression protection (1.1.0)
+
+The default budget starts at 1,000 rank XP and refills at 500 XP per active hour,
+up to 1,000. At a 30,000 XP final rank, new players need at least 58 active hours.
+Mining, placing blocks, dealing damage, shooting and inventory changes renew a
+120-second activity window. Moving at least two blocks with directional/jump input
+also renews it; passive water movement, vehicles, flight, teleports, looking,
+chat and XP pickup do not. Offline, idle, Creative and Spectator time never refills it.
+Activity checks cannot reliably identify macros. A main-thread stall over five
+seconds is not credited. Relogging and reloading do not reset the budget.
+
+After 30 player-attributed mob kills within 300 seconds and a 24-block radius of
+the latest kill, that kill's XP counts at 10% before applying the budget. Types
+and spawn reasons are combined. Player deaths, Ender Dragon, Wither and Warden
+are excluded from this extra reduction, but their XP still uses the budget.
+Farm factors follow the orbs, including transfer between players and merges;
+mixed orbs use the lowest factor. To cover Paper's spawn-time stacking, existing
+orbs within 1.5 blocks of a reduced death are conservatively tagged as well.
+Unknown sources receive only the budget limit.
+
+Only accepted XP consumes budget. Fractions persist, and surplus is discarded
+for rank progression; vanilla XP, mending and enchanting are untouched.
+`%xp%`, BossBars and existing rank thresholds show accepted rank XP.
+`/totalxp status [player]` shows budget, activity and the last limiting reason;
+only admins can inspect others. Actionbar notices are limited to once a minute.
+`/totalxp set` is an admin correction without a budget refill or retroactive rewards.
+`/totalxp reset` also clears protection history and restores the start budget.
+There is no automatic OP exemption.
+
+All settings below are configurable. Invalid reloads retain the active settings;
+invalid startup configurations prevent the plugin from enabling.
+
+```yaml
+progression:
+  enabled: true
+  budget-capacity: 1000
+  refill-per-active-hour: 500
+  activity-timeout-seconds: 120
+  farm:
+    enabled: true
+    window-seconds: 300
+    radius: 24
+    kill-threshold: 30
+    factor: 0.10
+```
+
+XP, budget, fractions, active time and recent kills are checkpointed atomically
+every 60 seconds, on logout and on clean shutdown. A process crash can lose the
+last checkpoint interval. The existing language file is retained; new message
+keys use bundled defaults when absent. Custom BossBar/messages can be labelled
+"Rang-XP" to distinguish progression from vanilla experience.
+
+## Configurable BossBar rank progress (1.1.1)
+
+The default title displays `Wanderer · Rang 4/100 → Sammler · 16/180 XP`
+at 626 cumulative rank XP when Wanderer starts at 610 and Sammler at 790.
+Both the title and bar fill use progress within the current rank. The XP display
+resets to zero exactly at rank-up; cumulative XP remains stored.
+
+```yaml
+bossbar:
+  title: "&e%current_rank%&r &7· Rang %rank_number%/%rank_count% &7→ &e%next_rank%&r &7· &a%rank_xp%&7/&e%rank_required_xp% &7XP"
+  max-rank-title: "&e%current_rank%&r &7· Rang %rank_number%/%rank_count% &7· Höchster Rang erreicht"
+  no-ranks-title: "&7Keine Ränge konfiguriert"
+```
+
+All titles support legacy colors, MiniMessage and placeholders. Rank numbers are
+derived from the configured XP thresholds, not LuckPerms group names: rank 0
+before the first threshold, then ranks 1 through the actual configured count.
+The highest rank displays the configurable maximum title and a full bar; an
+empty rank list displays the empty-list title and an empty bar. At maximum rank,
+the local earned/required/remaining XP placeholders are zero. Existing custom
+titles remain unchanged on upgrade; the new defaults can be copied manually.
 
 ---
 
@@ -25,7 +100,7 @@ This smoke test does not exercise a real player's in-game interactions.
 - **Global Total XP Tracking** 📈
   - Tracks XP from killing mobs, mining, **and** vanilla commands (`/xp`, `/experience`).
   - Never resets, even after death.
-  - **Async Caching**: High-performance data handling prevents server lag.
+  - **Caching**: Data is preloaded asynchronously and gameplay gains are processed in memory.
 - **BossBar Progress System** 📊
   - Displays a customizable BossBar showing progress to the next rank.
   - **Dynamic Mode**: Auto-hides the bar when not gaining XP.
@@ -92,7 +167,12 @@ Available for use in **Chat**, **Broadcasts**, and **BossBar**:
 | Placeholder | Description |
 | :--- | :--- |
 | `%player%` | Player's name |
-| `%xp%` | Player's total lifetime XP |
+| `%xp%` | Player's accumulated accepted rank XP |
+| `%rank_number%` | Current rank number, 0 before the first threshold |
+| `%rank_count%` | Number of configured ranks |
+| `%rank_xp%` | XP earned within the current rank |
+| `%rank_required_xp%` | XP gap from this rank to the next |
+| `%rank_remaining_xp%` | XP still missing until the next rank |
 | `%current_rank%` | Name of the current rank (e.g. "Novice") |
 | `%next_rank%` | Name of the next rank (e.g. "Master") |
 | `%required_xp%` | XP required for the next rank |
@@ -105,6 +185,7 @@ Available for use in **Chat**, **Broadcasts**, and **BossBar**:
 | Command | Description | Permission |
 | :--- | :--- | :--- |
 | `/txp get <player>` | View a player’s total XP | `totalxp.view` |
+| `/txp status [player]` | Budget, activity and rank XP | `totalxp.use` (others: `totalxp.admin`) |
 | `/txp show` | Show your BossBar | `totalxp.use` |
 | `/txp hide` | Hide your BossBar | `totalxp.use` |
 | `/txp set <player> <amount>` | Set a player’s XP | `totalxp.admin` |
@@ -116,7 +197,7 @@ Available for use in **Chat**, **Broadcasts**, and **BossBar**:
 ## 💾 Storage
 
 XP and reward history are stored via **SQLite**, located in:
-`plugins/TotalXPRewards/database.db`
+`plugins/TotalXPRewards/totalxp.db`
 
 **External Access**:
 The database now includes a `current_rank` and `username` column, making it easy to integrate with web leaderboards (e.g. Node.js apps).

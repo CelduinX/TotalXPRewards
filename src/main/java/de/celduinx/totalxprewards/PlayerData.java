@@ -13,6 +13,7 @@ public class PlayerData {
     private long totalXp;
     private String currentRankName;
     private BossBar bossBar; // Assigned by BossBarManager
+    private ProgressionState progression;
 
     public PlayerData(UUID uuid, String name, long totalXp) {
         this.uuid = uuid;
@@ -24,6 +25,9 @@ public class PlayerData {
     public UUID getUuid() {
         return uuid;
     }
+
+    public ProgressionState getProgression() { return progression; }
+    public void setProgression(ProgressionState progression) { this.progression = progression; }
 
     public String getName() {
         return name;

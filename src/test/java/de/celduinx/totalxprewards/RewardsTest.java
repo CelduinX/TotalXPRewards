@@ -53,6 +53,7 @@ class RewardsTest {
         when(plugin.format(eq(player), anyString(), anyLong(), anyLong(), eq(false)))
                 .thenAnswer(i -> i.getArgument(1));
         doCallRealMethod().when(plugin).handleXpGain(any(), anyInt());
+        doCallRealMethod().when(plugin).handleXpGain(any(), anyInt(), any());
         ConsoleCommandSender console = mock(ConsoleCommandSender.class);
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(Bukkit::getConsoleSender).thenReturn(console);

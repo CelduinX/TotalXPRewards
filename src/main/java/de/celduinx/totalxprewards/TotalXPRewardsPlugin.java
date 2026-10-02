@@ -31,13 +31,18 @@ import java.util.UUID;
  */
 public final class TotalXPRewardsPlugin extends JavaPlugin {
 
-    private static final int CONFIG_VERSION = 1;
+    private static final int CONFIG_VERSION = 2;
     private static TotalXPRewardsPlugin instance;
 
     private XPDatabase database;
     private final Map<Long, Reward> rewards = new TreeMap<>();
     private BossBarManager bossBarManager;
     private PlayerDataManager playerDataManager;
+    private volatile ProgressionSettings progressionSettings = ProgressionSettings.DEFAULT;
+    private ProgressionService progressionService;
+
+    public ProgressionSettings getProgressionSettings() { return progressionSettings; }
+    public ProgressionService getProgressionService() { return progressionService; }
 
     /**
      * Gets the singleton instance of this plugin.
@@ -75,6 +80,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
 
         // Initialise BossBar manager
         this.bossBarManager = new BossBarManager(this);
+        this.progressionService = new ProgressionService(this);
 
         // Register event listener
         getServer().getPluginManager().registerEvents(new XPListener(this), this);
@@ -98,6 +104,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (progressionService != null) progressionService.close();
         if (bossBarManager != null) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 bossBarManager.remove(player);
@@ -119,8 +126,12 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         }
 
         // Load directly from disk to ensure we have the latest
-        org.bukkit.configuration.file.YamlConfiguration config = org.bukkit.configuration.file.YamlConfiguration
-                .loadConfiguration(configFile);
+        org.bukkit.configuration.file.YamlConfiguration config = new org.bukkit.configuration.file.YamlConfiguration();
+        try {
+            config.load(configFile);
+        } catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException e) {
+            throw new IllegalArgumentException("Cannot migrate invalid config.yml", e);
+        }
 
         int currentVersion = config.getInt("config-version", 0);
         boolean changed = false;
@@ -164,6 +175,18 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 }
             }
 
+            if (currentVersion < 2) {
+                org.bukkit.configuration.file.YamlConfiguration defaults =
+                        org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
+                                new java.io.InputStreamReader(java.util.Objects.requireNonNull(getResource("config.yml")),
+                                        java.nio.charset.StandardCharsets.UTF_8));
+                for (String key : defaults.getConfigurationSection("progression").getKeys(true)) {
+                    String path = "progression." + key;
+                    if (!defaults.isConfigurationSection(path) && !config.contains(path))
+                        config.set(path, defaults.get(path));
+                }
+            }
+
             // Mark validation as done by updating version
             config.set("config-version", CONFIG_VERSION);
             changed = true;
@@ -185,7 +208,18 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
      * Reloads plugin settings, including config and language files.
      */
     public void reloadSettings() {
+        org.bukkit.configuration.file.YamlConfiguration disk = new org.bukkit.configuration.file.YamlConfiguration();
+        try {
+            disk.load(new File(getDataFolder(), "config.yml"));
+        } catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException e) {
+            throw new IllegalArgumentException("Cannot read config.yml: " + e.getMessage(), e);
+        }
+        ProgressionSettings candidate = ProgressionSettings.read(disk.getConfigurationSection("progression"));
+        if (progressionService != null) {
+            for (Player p : Bukkit.getOnlinePlayers()) progressionService.settlePlayer(p);
+        }
         reloadConfig();
+        progressionSettings = candidate;
         Lang.reload(this);
         loadRewards();
         if (bossBarManager != null) {
@@ -260,6 +294,10 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
      * Handles an XP gain event.
      */
     public void handleXpGain(Player player, int amount) {
+        handleXpGain(player, amount, null);
+    }
+
+    public void handleXpGain(Player player, int amount, org.bukkit.entity.Entity source) {
         if (amount <= 0) {
             return; // ignore zero/negative XP
         }
@@ -268,6 +306,9 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         PlayerData data = playerDataManager.getData(uuid);
         if (data == null)
             return; // Should not happen if online
+
+        if (progressionService != null) amount = progressionService.filter(player, amount, source);
+        if (amount <= 0) return;
 
         data.addXp(amount);
         long newTotal = data.getTotalXp();
@@ -389,6 +430,14 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         }
 
         // 3. Standard replacements
+        if (text.contains("%rank_")) {
+            RankProgress progress = RankProgress.calculate(rewards, xp);
+            text = text.replace("%rank_number%", String.valueOf(progress.number()))
+                    .replace("%rank_count%", String.valueOf(progress.count()))
+                    .replace("%rank_xp%", String.valueOf(progress.earned()))
+                    .replace("%rank_required_xp%", String.valueOf(progress.required()))
+                    .replace("%rank_remaining_xp%", String.valueOf(progress.remaining()));
+        }
         text = text.replace("%player%", player.getName())
                 .replace("%xp%", String.valueOf(xp))
                 .replace("%threshold%", String.valueOf(threshold));

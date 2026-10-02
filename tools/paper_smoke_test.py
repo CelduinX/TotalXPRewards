@@ -51,6 +51,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--server", type=Path, required=True)
     parser.add_argument("--stop", action="store_true")
+    parser.add_argument("--expected-version", default="1.1.1")
     args = parser.parse_args()
     root = args.server.resolve()
     properties = {}
@@ -58,28 +59,29 @@ def main():
         if "=" in line and not line.startswith("#"):
             key, value = line.split("=", 1)
             properties[key] = value
-    protected = [root / "plugins/TotalXPRewards" / name for name in ("config.yml", "lang.yml")]
-    hashes = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in protected}
     log = root / "logs/latest.log"
     deadline = time.monotonic() + 50
     while time.monotonic() < deadline:
         content = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
-        if "Done (" in content and "TotalXPRewards v1.0.3" in content:
+        if "Done (" in content and f"TotalXPRewards v{args.expected_version}" in content:
             # latest.log may still contain the previous run during early startup.
             try:
-                if "1.0.3" in command(properties, "version TotalXPRewards"):
+                if args.expected_version in command(properties, "version TotalXPRewards"):
                     break
             except (OSError, ConnectionError):
                 pass
         time.sleep(1)
     else:
-        raise RuntimeError("Paper with TotalXPRewards 1.0.3 did not become ready")
+        raise RuntimeError(f"Paper with TotalXPRewards {args.expected_version} did not become ready")
+    # Startup may intentionally migrate the config; reload must leave it unchanged.
+    protected = [root / "plugins/TotalXPRewards" / name for name in ("config.yml", "lang.yml")]
+    hashes = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in protected}
     try:
-        for text in ("version TotalXPRewards", "totalxp", "totalxp reload", "totalxp get @a",
+        for text in ("version TotalXPRewards", "totalxp", "totalxp reload", "totalxp get @a", "totalxp status @a",
                      "totalxp set @a -1", "totalxp show", "totalxp hide"):
             response = command(properties, text)
             print(f"{text}: {response}", flush=True)
-            if "version TotalXPRewards" == text and "1.0.3" not in response:
+            if "version TotalXPRewards" == text and args.expected_version not in response:
                 raise RuntimeError("Unexpected plugin version")
             if text == "totalxp reload" and "Configuration reloaded." not in response:
                 raise RuntimeError("Plugin reload failed")

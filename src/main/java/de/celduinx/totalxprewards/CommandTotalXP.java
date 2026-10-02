@@ -38,6 +38,9 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             case "get":
                 handleGet(sender, args);
                 break;
+            case "status":
+                handleStatus(sender, args);
+                break;
             case "set":
                 handleSet(sender, args);
                 break;
@@ -71,6 +74,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
         for (String line : lines) {
             sender.sendMessage(line.replace("%label%", label));
         }
+        sender.sendMessage(Lang.get("progression-help").replace("%label%", label));
     }
 
     private List<OfflinePlayer> resolveTargets(CommandSender sender, String arg) {
@@ -125,7 +129,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             String msg = Lang.get("xp-view")
                     .replace("%player%", name)
                     .replace("%xp%", String.valueOf(xp));
-            sender.sendMessage(msg);
+            sender.sendMessage(msg + " (Rang-XP)");
         }
     }
 
@@ -208,6 +212,8 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             if (data != null) {
                 data.setTotalXp(0);
                 data.setCurrentRankName(plugin.getRankName(0));
+                data.setProgression(new ProgressionState(plugin.getProgressionSettings().capacity()));
+                plugin.getDatabase().saveData(data);
             }
 
             String msg = Lang.get("xp-reset").replace("%player%", name);
@@ -223,8 +229,48 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             sender.sendMessage(Lang.get("no-permission"));
             return;
         }
-        plugin.reloadSettings();
-        sender.sendMessage(Lang.get("prefix") + "Configuration reloaded.");
+        try {
+            plugin.reloadSettings();
+            sender.sendMessage(Lang.get("prefix") + "Configuration reloaded.");
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning("Configuration rejected; previous settings remain active: " + e.getMessage());
+            sender.sendMessage(Lang.get("progression-config-error") + " " + e.getMessage());
+        }
+    }
+
+    private void handleStatus(CommandSender sender, String[] args) {
+        List<OfflinePlayer> targets;
+        if (args.length == 1 && sender instanceof Player p) {
+            targets = List.of(p);
+        } else if (args.length >= 2) {
+            if (!sender.hasPermission("totalxp.admin")) {
+                // Explicitly naming oneself is allowed, selectors require admin permission.
+                if (sender instanceof Player p && args[1].equalsIgnoreCase(p.getName())) targets = List.of(p);
+                else { sender.sendMessage(Lang.get("no-permission")); return; }
+            } else targets = resolveTargets(sender, args[1]);
+        } else {
+            sender.sendMessage(Lang.get("progression-help").replace("%label%", "totalxp"));
+            return;
+        }
+        if (targets.isEmpty()) { sender.sendMessage(Lang.get("player-not-found")); return; }
+        ProgressionSettings settings = plugin.getProgressionSettings();
+        for (OfflinePlayer target : targets) {
+            PlayerData data = plugin.getPlayerDataManager().getData(target.getUniqueId());
+            if (target.getPlayer() != null) plugin.getProgressionService().settlePlayer(target.getPlayer());
+            ProgressionState state = data == null ? plugin.getDatabase().getProgression(target.getUniqueId(), settings.capacity())
+                    : data.getProgression();
+            long xp = data == null ? plugin.getDatabase().getXp(target.getUniqueId()) : data.getTotalXp();
+            sender.sendMessage(Lang.get("progression-status")
+                    .replace("%player%", target.getName() == null ? args[1] : target.getName())
+                    .replace("%xp%", Long.toString(xp))
+                    .replace("%budget%", String.format(java.util.Locale.ROOT, "%.1f", state.budget()))
+                    .replace("%capacity%", String.format(java.util.Locale.ROOT, "%.0f", settings.capacity()))
+                    .replace("%active%", Lang.get(state.active(System.nanoTime()) && target.isOnline()
+                            ? "progression-active" : "progression-inactive"))
+                    .replace("%hours%", String.format(java.util.Locale.ROOT, "%.2f", state.activeSeconds() / 3600))
+                    .replace("%enabled%", Lang.get(settings.enabled() ? "progression-enabled" : "progression-disabled"))
+                    .replace("%reason%", ProgressionService.reasonText(state.reason())));
+        }
     }
 
     private void handleShow(CommandSender sender) {
@@ -259,6 +305,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             String prefix = args[0].toLowerCase();
             if ("get".startsWith(prefix))
                 result.add("get");
+            if ("status".startsWith(prefix)) result.add("status");
             if ("set".startsWith(prefix) && sender.hasPermission("totalxp.admin"))
                 result.add("set");
             if ("reset".startsWith(prefix) && sender.hasPermission("totalxp.admin"))
@@ -274,7 +321,8 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
 
         if (args.length == 2 && (args[0].equalsIgnoreCase("get")
                 || args[0].equalsIgnoreCase("set")
-                || args[0].equalsIgnoreCase("reset"))) {
+                || args[0].equalsIgnoreCase("reset")
+                || (args[0].equalsIgnoreCase("status") && sender.hasPermission("totalxp.admin")))) {
 
             String namePrefix = args[1].toLowerCase();
             if ("@a".startsWith(namePrefix))

@@ -1,7 +1,6 @@
 package de.celduinx.totalxprewards;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -11,23 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * package de.celduinx.totalxprewards;
- * 
- * import org.bukkit.Bukkit;
- * import org.bukkit.ChatColor;
- * import org.bukkit.boss.BarColor;
- * import org.bukkit.boss.BarStyle;
- * import org.bukkit.boss.BossBar;
- * import org.bukkit.entity.Player;
- * 
- * import java.util.HashMap;
- * import java.util.Map;
- * import java.util.UUID;
- * 
- * /**
- * Manages the BossBar for each player to display XP progress.
- */
+/** Manages the BossBar showing progress within the current rank. */
 public class BossBarManager {
 
     private final TotalXPRewardsPlugin plugin;
@@ -39,6 +22,8 @@ public class BossBarManager {
     private boolean dynamicMode;
     private int timeout;
     private String titleTemplate;
+    private String maxTitleTemplate;
+    private String noRanksTitleTemplate;
     private BarColor barColor;
     private BarStyle barStyle;
 
@@ -55,6 +40,9 @@ public class BossBarManager {
         this.dynamicMode = plugin.getConfig().getBoolean("bossbar.dynamic-mode", false);
         this.timeout = plugin.getConfig().getInt("bossbar.timeout", 5);
         this.titleTemplate = plugin.getConfig().getString("bossbar.title", "Next Rank: %next_rank%");
+        this.maxTitleTemplate = plugin.getConfig().getString("bossbar.max-rank-title",
+                "%current_rank%&r &7· Rang %rank_number%/%rank_count% &7· Höchster Rang erreicht");
+        this.noRanksTitleTemplate = plugin.getConfig().getString("bossbar.no-ranks-title", "&7Keine Ränge konfiguriert");
 
         String colorStr = plugin.getConfig().getString("bossbar.color", "BLUE");
         try {
@@ -126,19 +114,7 @@ public class BossBarManager {
             return;
         }
 
-        // Find next threshold using the actual Reward object to get the Name
-        long nextThreshold = -1;
-        long prevThreshold = 0; // The threshold of the current rank (start of progress bar)
-
-        // Maps are sorted in plugin.getRewards() (TreeMap)
-        for (java.util.Map.Entry<Long, Reward> entry : plugin.getRewards().entrySet()) {
-            long threshold = entry.getKey();
-            if (threshold > currentXp) {
-                nextThreshold = threshold;
-                break;
-            }
-            prevThreshold = threshold;
-        }
+        RankProgress rank = RankProgress.calculate(plugin.getRewards(), currentXp);
 
         BossBar bar = bossBars.computeIfAbsent(player.getUniqueId(), k -> {
             BossBar b = Bukkit.createBossBar("", barColor, barStyle);
@@ -151,36 +127,10 @@ public class BossBarManager {
         bar.setStyle(barStyle);
         bar.setVisible(true);
 
-        if (nextThreshold == -1) {
-            // Max level reached
-            String maxTitle = ChatColor.translateAlternateColorCodes('&', "&aMax Rank Reached");
-            // If the user wants to keep a specific title for max rank, we could add that to
-            // config
-            // For now, hardcoded or maybe use the last rank name?
-            // Let's stick to "Max Rank Reached" or similar
-            bar.setTitle(maxTitle);
-            bar.setProgress(1.0);
-            return;
-        }
-
-        // Calculate progress
-        double range = nextThreshold - prevThreshold;
-        double currentInRange = currentXp - prevThreshold;
-        double progress = 0.0;
-
-        if (range > 0) {
-            progress = currentInRange / range;
-        }
-
-        // Clamp progress
-        progress = Math.max(0.0, Math.min(1.0, progress));
-        bar.setProgress(progress);
-
-        // Format Title
-        // Placeholder replacement for %next_rank% and %required_xp% is now handled
-        // in plugin.format(), so we can just pass the raw template string.
-        // We still pass nextThreshold as the 'threshold' legacy argument just in case.
-        String title = plugin.format(player, titleTemplate, currentXp, nextThreshold, true);
+        bar.setProgress(rank.fill());
+        String template = rank.count() == 0 ? noRanksTitleTemplate
+                : rank.maximum() ? maxTitleTemplate : titleTemplate;
+        String title = plugin.format(player, template, currentXp, rank.nextThreshold(), true);
 
         bar.setTitle(title);
 

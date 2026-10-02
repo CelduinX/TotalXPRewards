@@ -1,3 +1,21 @@
+# TotalXPRewards v1.1.1 - Configurable rank-local BossBar
+
+* Add rank number/count and local earned/required/remaining XP placeholders.
+* Default title shows current rank, rank position, next rank and local XP; XP resets at rank-up.
+* Share the calculation between placeholders and BossBar fill; retain cumulative XP placeholders.
+* Make maximum-rank and empty-rank titles configurable, preserving custom titles on upgrade.
+* Test screenshot values, rank boundaries, maximum/empty ranks and custom-title reloads.
+
+# TotalXPRewards v1.1.0 - Rank progression protection
+
+* Keep vanilla XP unchanged; limit rank XP to a persisted 1,000 XP budget refilling at 500 XP per active hour.
+* Track real actions and movement input, excluding idle/offline time, teleports, passive movement, vehicles and flight.
+* Reduce local repeated mob kills to 10% at 30 kills in five minutes within 24 blocks; exclude bosses and player deaths.
+* Persist farm factors on XP orbs and propagate through merging and spawn-time stacking.
+* Retain fractional credits, discard surplus and checkpoint XP/progression together every 60 seconds, on quit and shutdown.
+* Preserve existing XP, rewards, ranks and custom config; add validated progression settings and an additive SQLite table.
+* Add `/totalxp status [player]`, localized limiting notices, explicit admin set/reset behavior and regression tests.
+
 # TotalXPRewards v1.0.3 - Paper 26.2
 
 * Build against Paper 26.2 build 129 and its Adventure 5 API, using Java 25 and Gradle 9.5.

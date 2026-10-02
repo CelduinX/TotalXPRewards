@@ -57,6 +57,9 @@ public class XPDatabase {
                 // Let's rely on standard try-catch or explicit check.
 
                 migrateTable(st);
+                st.executeUpdate("CREATE TABLE IF NOT EXISTS player_progression ("
+                        + "uuid TEXT PRIMARY KEY, budget REAL NOT NULL, fraction REAL NOT NULL, "
+                        + "active_seconds REAL NOT NULL, reason TEXT NOT NULL, kills TEXT NOT NULL)");
 
                 // Rewards table
                 st.executeUpdate(
@@ -140,7 +143,7 @@ public class XPDatabase {
                 ps.setString(4, rank);
                 ps.executeUpdate();
             } catch (SQLException e) {
-                plugin.getLogger().severe("Error saving player data to database: " + e.getMessage());
+                throw new IllegalStateException("Error saving player data to database", e);
             }
         }
     }
@@ -225,14 +228,77 @@ public class XPDatabase {
             if (connection == null)
                 return;
             try (PreparedStatement ps1 = connection.prepareStatement("DELETE FROM player_xp WHERE uuid = ?");
-                    PreparedStatement ps2 = connection.prepareStatement("DELETE FROM player_rewards WHERE uuid = ?")) {
+                    PreparedStatement ps2 = connection.prepareStatement("DELETE FROM player_rewards WHERE uuid = ?");
+                    PreparedStatement ps3 = connection.prepareStatement("DELETE FROM player_progression WHERE uuid = ?")) {
                 ps1.setString(1, uuid.toString());
                 ps1.executeUpdate();
 
                 ps2.setString(1, uuid.toString());
                 ps2.executeUpdate();
+                ps3.setString(1, uuid.toString());
+                ps3.executeUpdate();
             } catch (SQLException e) {
                 plugin.getLogger().severe("Error resetting player in database: " + e.getMessage());
+            }
+        }
+    }
+
+    public ProgressionState getProgression(UUID uuid, double capacity) {
+        synchronized (lock) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM player_progression WHERE uuid = ?")) {
+                ps.setString(1, uuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return new ProgressionState(capacity);
+                    double budget = rs.getDouble("budget"), fraction = rs.getDouble("fraction");
+                    double seconds = rs.getDouble("active_seconds");
+                    if (!Double.isFinite(budget) || budget < 0 || !Double.isFinite(fraction)
+                            || fraction < 0 || fraction >= 1 || !Double.isFinite(seconds) || seconds < 0)
+                        throw new IllegalStateException("Invalid progression data for " + uuid);
+                    ProgressionState state = new ProgressionState(Math.min(capacity, budget));
+                    state.restore(fraction, seconds, rs.getString("reason"),
+                            ProgressionState.decodeKills(rs.getString("kills")));
+                    return state;
+                }
+            } catch (SQLException e) {
+                throw new IllegalStateException("Cannot load progression for " + uuid, e);
+            }
+        }
+    }
+
+    public void saveProgression(UUID uuid, ProgressionState state) {
+        if (state == null) return;
+        synchronized (lock) {
+            String sql = "INSERT INTO player_progression VALUES (?,?,?,?,?,?) ON CONFLICT(uuid) DO UPDATE SET "
+                    + "budget=excluded.budget, fraction=excluded.fraction, active_seconds=excluded.active_seconds, "
+                    + "reason=excluded.reason, kills=excluded.kills";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setString(1, uuid.toString());
+                ps.setDouble(2, state.budget());
+                ps.setDouble(3, state.fraction());
+                ps.setDouble(4, state.activeSeconds());
+                ps.setString(5, state.reason());
+                ps.setString(6, state.encodeKills());
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                throw new IllegalStateException("Cannot save progression for " + uuid, e);
+            }
+        }
+    }
+
+    public void saveData(PlayerData data) {
+        synchronized (lock) {
+            try {
+                connection.setAutoCommit(false);
+                setPlayerData(data.getUuid(), data.getTotalXp(), data.getName(), data.getCurrentRankName());
+                saveProgression(data.getUuid(), data.getProgression());
+                connection.commit();
+            } catch (SQLException | RuntimeException e) {
+                try { connection.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+                throw new IllegalStateException("Cannot save player data", e);
+            } finally {
+                try { connection.setAutoCommit(true); } catch (SQLException e) {
+                    throw new IllegalStateException("Cannot restore database transaction mode", e);
+                }
             }
         }
     }

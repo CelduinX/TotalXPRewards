@@ -20,10 +20,23 @@ negative-amount: "&cXP amount cannot be negative."
 
 # XP Management Messages
 # ------------------------------------------------------------------------------
-xp-view: "&a%player% currently has &e%xp% &atotal XP."
-xp-set: "&aSuccessfully set &e%player%&a's total XP to &e%amount%."
-xp-reset: "&aSuccessfully reset total XP for &e%player%&a."
+xp-view: "&a%player% currently has &e%xp% &arank XP."
+xp-set: "&aSuccessfully set &e%player%&a's rank XP to &e%amount%."
+xp-reset: "&aSuccessfully reset rank XP for &e%player%&a."
 max-rank: "Max Rank"
+
+progression-help: "&f/%label% status [Spieler] &7Rang-XP und Budget (fremde Spieler: Admin)"
+progression-status: "&e%player% &7| &a%xp% Rang-XP &7| Budget: &a%budget%/%capacity% &7| %active% &7| Aktiv: %hours% h &7| Schutz: %enabled% &7| Letzter Grund: %reason%"
+progression-limited: "&eRang-XP begrenzt: %reason% &7| Budget: %budget% &7| Minecraft-XP bleiben erhalten."
+progression-config-error: "&cUngültige Konfiguration. Bisherige Einstellungen bleiben aktiv:"
+progression-active: "aktiv"
+progression-inactive: "inaktiv"
+progression-enabled: "an"
+progression-disabled: "aus"
+progression-reason-none: "keine Begrenzung"
+progression-reason-budget: "Rang-XP-Budget"
+progression-reason-farm: "Mob-Farm"
+progression-reason-farm+budget: "Mob-Farm und Rang-XP-Budget"
 
 # Help Menu
 # ------------------------------------------------------------------------------
