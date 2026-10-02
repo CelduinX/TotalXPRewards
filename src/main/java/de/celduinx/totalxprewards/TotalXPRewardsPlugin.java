@@ -67,11 +67,11 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         // Init SQLite
         this.database = new XPDatabase(this);
 
-        // Init Cache Manager
-        this.playerDataManager = new PlayerDataManager(this);
-
         // Load config + language + rewards
         reloadSettings();
+
+        // Load rewards before calculating ranks for cached players.
+        this.playerDataManager = new PlayerDataManager(this);
 
         // Initialise BossBar manager
         this.bossBarManager = new BossBarManager(this);
@@ -94,6 +94,22 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         new Metrics(this, pluginId);
 
         getLogger().info("TotalXPRewards enabled.");
+    }
+
+    @Override
+    public void onDisable() {
+        if (bossBarManager != null) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                bossBarManager.remove(player);
+            }
+        }
+        if (playerDataManager != null) {
+            playerDataManager.saveAll();
+        }
+        if (database != null) {
+            database.close();
+        }
+        instance = null;
     }
 
     private void migrateConfig() {

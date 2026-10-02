@@ -1,6 +1,7 @@
 package de.celduinx.totalxprewards;
 
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerExpChangeEvent;
 
@@ -11,29 +12,33 @@ import org.bukkit.event.player.PlayerExpChangeEvent;
 public class XPListener implements Listener {
 
     private final TotalXPRewardsPlugin plugin;
+    private final java.util.Map<java.util.UUID, Integer> beforeXp = new java.util.HashMap<>();
+    private final java.util.Map<java.util.UUID, Integer> naturalGains = new java.util.HashMap<>();
+    private boolean commandCheckPending;
 
     public XPListener(TotalXPRewardsPlugin plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerExpChange(PlayerExpChangeEvent event) {
         int amount = event.getAmount();
         if (amount <= 0) {
             return;
         }
         plugin.handleXpGain(event.getPlayer(), amount);
+        if (beforeXp.containsKey(event.getPlayer().getUniqueId())) {
+            naturalGains.merge(event.getPlayer().getUniqueId(), amount, Integer::sum);
+        }
     }
 
     /**
      * Intercepts player commands to check for /xp or /experience usage.
      * Calculates XP difference before and after command execution to track gains.
      */
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerCommand(org.bukkit.event.player.PlayerCommandPreprocessEvent event) {
-        String msg = event.getMessage().toLowerCase();
-        if (msg.startsWith("/xp ") || msg.startsWith("/experience ") || msg.equals("/xp")
-                || msg.equals("/experience")) {
+        if (isXpCommand(event.getMessage())) {
             handleXpCommand();
         }
     }
@@ -41,55 +46,74 @@ public class XPListener implements Listener {
     /**
      * Intercepts console commands to check for xp or experience usage.
      */
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onServerCommand(org.bukkit.event.server.ServerCommandEvent event) {
-        String cmd = event.getCommand().toLowerCase();
-        if (cmd.startsWith("xp ") || cmd.startsWith("experience ") || cmd.equals("xp") || cmd.equals("experience")) {
+        if (isXpCommand(event.getCommand())) {
             handleXpCommand();
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onRemoteServerCommand(org.bukkit.event.server.RemoteServerCommandEvent event) {
+        if (isXpCommand(event.getCommand())) {
+            handleXpCommand();
+        }
+    }
+
+    private boolean isXpCommand(String command) {
+        String name = command.strip().split("\\s+", 2)[0].toLowerCase(java.util.Locale.ROOT);
+        if (name.startsWith("/")) {
+            name = name.substring(1);
+        }
+        return name.equals("xp") || name.equals("experience")
+                || name.equals("minecraft:xp") || name.equals("minecraft:experience");
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
         if (plugin.getBossBarManager() != null) {
-            java.util.UUID uuid = event.getPlayer().getUniqueId();
-            org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                long xp = plugin.getDatabase().getXp(uuid);
-                org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (event.getPlayer().isOnline()) {
-                        plugin.getBossBarManager().update(event.getPlayer(), xp);
-                    }
-                });
-            });
+            PlayerData data = plugin.getPlayerDataManager().getData(event.getPlayer());
+            if (data != null) {
+                plugin.getBossBarManager().update(event.getPlayer(), data.getTotalXp());
+            }
         }
     }
 
     @EventHandler
     public void onPlayerQuit(org.bukkit.event.player.PlayerQuitEvent event) {
+        beforeXp.remove(event.getPlayer().getUniqueId());
+        naturalGains.remove(event.getPlayer().getUniqueId());
         if (plugin.getBossBarManager() != null) {
             plugin.getBossBarManager().remove(event.getPlayer());
         }
     }
 
     private void handleXpCommand() {
+        // Share one snapshot for commands in the same tick to avoid counting twice.
+        if (commandCheckPending) {
+            return;
+        }
+        commandCheckPending = true;
         // Snapshot current total XP for all online players
-        java.util.Map<java.util.UUID, Integer> beforeXp = new java.util.HashMap<>();
         for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
-            beforeXp.put(p.getUniqueId(), p.getTotalExperience());
+            beforeXp.put(p.getUniqueId(), p.calculateTotalExperiencePoints());
         }
 
         // Check 1 tick later
         org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
+            java.util.Map<java.util.UUID, Integer> snapshot = new java.util.HashMap<>(beforeXp);
+            java.util.Map<java.util.UUID, Integer> gainedNaturally = new java.util.HashMap<>(naturalGains);
+            beforeXp.clear();
+            naturalGains.clear();
+            commandCheckPending = false;
             for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
-                if (!beforeXp.containsKey(p.getUniqueId()))
-                    continue;
-
-                int oldTotal = beforeXp.get(p.getUniqueId());
-                int newTotal = p.getTotalExperience();
-                int diff = newTotal - oldTotal;
-
-                if (diff > 0) {
-                    plugin.handleXpGain(p, diff);
+                Integer oldTotal = snapshot.get(p.getUniqueId());
+                if (oldTotal != null) {
+                    int diff = p.calculateTotalExperiencePoints() - oldTotal
+                            - gainedNaturally.getOrDefault(p.getUniqueId(), 0);
+                    if (diff > 0) {
+                        plugin.handleXpGain(p, diff);
+                    }
                 }
             }
         });

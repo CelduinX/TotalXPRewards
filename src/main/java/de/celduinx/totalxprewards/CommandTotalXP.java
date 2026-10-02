@@ -85,7 +85,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
         } catch (IllegalArgumentException | NoSuchMethodError ignored) {
         }
 
-        if (targets.isEmpty()) {
+        if (targets.isEmpty() && !arg.startsWith("@")) {
             OfflinePlayer target = Bukkit.getOfflinePlayer(arg);
             if (target.hasPlayedBefore() || (target.getName() != null) || target.isOnline()) {
                 targets.add(target);
@@ -165,8 +165,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
                 data.setTotalXp(amount);
                 data.setCurrentRankName(plugin.getRankName(amount));
 
-                Bukkit.getScheduler().runTaskAsynchronously(plugin,
-                        () -> plugin.getDatabase().setPlayerData(uuid, amount, name, data.getCurrentRankName()));
+                plugin.getDatabase().setPlayerData(uuid, amount, name, data.getCurrentRankName());
             } else {
                 // Offline
                 String rankName = plugin.getRankName(amount);
@@ -208,6 +207,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             PlayerData data = plugin.getPlayerDataManager().getData(uuid);
             if (data != null) {
                 data.setTotalXp(0);
+                data.setCurrentRankName(plugin.getRankName(0));
             }
 
             String msg = Lang.get("xp-reset").replace("%player%", name);

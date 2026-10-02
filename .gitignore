@@ -5,6 +5,10 @@ build/
 !**/src/test/**/build/
 .kotlin
 
+# Python tooling caches
+__pycache__/
+*.pyc
+
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml

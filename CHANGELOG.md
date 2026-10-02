@@ -1,3 +1,17 @@
+# TotalXPRewards v1.0.3 - Paper 26.2
+
+* Build against Paper 26.2 build 129 and its Adventure 5 API, using Java 25 and Gradle 9.5.
+* Update the plugin API version and PlaceholderAPI compile dependency to 2.12.3.
+* Save cached player XP on disable and close SQLite after saving; finish quit and admin saves before reconnect/shutdown.
+* Load join fallback data synchronously and initialize rewards before calculating cached ranks.
+* Calculate XP command changes from level/progress rather than the separate total-experience counter.
+* Recognize namespaced vanilla XP commands and RCON commands; coalesce checks in the same tick and exclude already counted natural gains.
+* Use the loaded cache for the join BossBar and update the cached rank on reset.
+* Synchronize SQLite reward reads, resets, and closing with other database access.
+* Keep empty/invalid selectors from falling back to offline player names.
+* Preserve the existing configuration, language file, and database schema.
+* Add XP/persistence regression tests and a local Paper RCON smoke test.
+
 # TotalXPRewards v1.0.2 - Optimization Update
 
 ## 🚀 Performance Optimizations

@@ -177,19 +177,21 @@ public class XPDatabase {
      * @return {@code true} if already issued
      */
     public boolean hasReward(UUID uuid, long threshold) {
-        if (connection == null)
-            return false;
-        String sql = "SELECT 1 FROM player_rewards WHERE uuid = ? AND threshold = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, uuid.toString());
-            ps.setLong(2, threshold);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
+        synchronized (lock) {
+            if (connection == null)
+                return false;
+            String sql = "SELECT 1 FROM player_rewards WHERE uuid = ? AND threshold = ?";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setString(1, uuid.toString());
+                ps.setLong(2, threshold);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next();
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Error checking reward in database: " + e.getMessage());
             }
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Error checking reward in database: " + e.getMessage());
+            return false;
         }
-        return false;
     }
 
     /**
@@ -219,17 +221,19 @@ public class XPDatabase {
      * @param uuid the player's UUID
      */
     public void resetPlayer(UUID uuid) {
-        if (connection == null)
-            return;
-        try (PreparedStatement ps1 = connection.prepareStatement("DELETE FROM player_xp WHERE uuid = ?");
-                PreparedStatement ps2 = connection.prepareStatement("DELETE FROM player_rewards WHERE uuid = ?")) {
-            ps1.setString(1, uuid.toString());
-            ps1.executeUpdate();
+        synchronized (lock) {
+            if (connection == null)
+                return;
+            try (PreparedStatement ps1 = connection.prepareStatement("DELETE FROM player_xp WHERE uuid = ?");
+                    PreparedStatement ps2 = connection.prepareStatement("DELETE FROM player_rewards WHERE uuid = ?")) {
+                ps1.setString(1, uuid.toString());
+                ps1.executeUpdate();
 
-            ps2.setString(1, uuid.toString());
-            ps2.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Error resetting player in database: " + e.getMessage());
+                ps2.setString(1, uuid.toString());
+                ps2.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Error resetting player in database: " + e.getMessage());
+            }
         }
     }
 
@@ -237,12 +241,15 @@ public class XPDatabase {
      * Closes the SQLite connection when the plugin is disabled.
      */
     public void close() {
-        if (connection != null) {
-            try {
-                connection.close();
-                plugin.getLogger().info("SQLite database connection closed.");
-            } catch (SQLException e) {
-                plugin.getLogger().severe("Error closing database connection: " + e.getMessage());
+        synchronized (lock) {
+            if (connection != null) {
+                try {
+                    connection.close();
+                    connection = null;
+                    plugin.getLogger().info("SQLite database connection closed.");
+                } catch (SQLException e) {
+                    plugin.getLogger().severe("Error closing database connection: " + e.getMessage());
+                }
             }
         }
     }

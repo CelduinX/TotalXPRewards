@@ -23,7 +23,7 @@ public class PlayerDataManager implements Listener {
 
         // Load data for any players already online (reloads)
         for (Player p : Bukkit.getOnlinePlayers()) {
-            load(p.getUniqueId(), p.getName(), true);
+            load(p.getUniqueId(), p.getName());
         }
     }
 
@@ -31,7 +31,7 @@ public class PlayerDataManager implements Listener {
     public void onAsyncLogin(AsyncPlayerPreLoginEvent event) {
         // Pre-load data async if possible
         if (event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.ALLOWED) {
-            load(event.getUniqueId(), event.getName(), false);
+            load(event.getUniqueId(), event.getName());
         }
     }
 
@@ -40,7 +40,7 @@ public class PlayerDataManager implements Listener {
         // Ensure data is loaded (if async login failed or wasn't used)
         if (!dataMap.containsKey(event.getPlayer().getUniqueId())) {
             // Fallback sync load if needed, but ideally we did it async
-            load(event.getPlayer().getUniqueId(), event.getPlayer().getName(), true);
+            load(event.getPlayer().getUniqueId(), event.getPlayer().getName());
         }
     }
 
@@ -49,34 +49,25 @@ public class PlayerDataManager implements Listener {
         saveAndRemove(event.getPlayer().getUniqueId());
     }
 
-    private void load(UUID uuid, String name, boolean async) {
-        if (dataMap.containsKey(uuid))
-            return;
-
-        Runnable loadTask = () -> {
+    private void load(UUID uuid, String name) {
+        // Usually runs during async pre-login; the join fallback must finish
+        // before the player can gain XP. Never publish a stale async load later.
+        dataMap.computeIfAbsent(uuid, key -> {
             long xp = plugin.getDatabase().getXp(uuid);
             PlayerData data = new PlayerData(uuid, name, xp);
             // Calculate Rank
             String rank = plugin.getRankName(xp);
             data.setCurrentRankName(rank);
 
-            dataMap.put(uuid, data);
-        };
-
-        if (async) {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, loadTask);
-        } else {
-            loadTask.run();
-        }
+            return data;
+        });
     }
 
     private void saveAndRemove(UUID uuid) {
         PlayerData data = dataMap.remove(uuid);
         if (data != null) {
-            // Save Async
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                plugin.getDatabase().setPlayerData(uuid, data.getTotalXp(), data.getName(), data.getCurrentRankName());
-            });
+            // Finish saving before a reconnect or server shutdown can reload/close it.
+            plugin.getDatabase().setPlayerData(uuid, data.getTotalXp(), data.getName(), data.getCurrentRankName());
 
             // Cleanup BossBar
             if (data.getBossBar() != null) {

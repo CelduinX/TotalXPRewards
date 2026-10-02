@@ -1,7 +1,22 @@
 # Total XP Rewards
 
 A powerful and lightweight Paper plugin that tracks each player's **lifetime XP** and executes **custom rewards** when XP milestones are reached.
-Fully configurable, translation-ready, and built for modern Paper servers (1.21+).
+Fully configurable, translation-ready, and built for Paper 26.2 (Java 25).
+
+## Building and updating
+
+With JDK 25 installed, run `./gradlew build` (`gradlew.bat build` on Windows).
+The plugin JAR is written to `build/libs/TotalXPRewards-1.0.3.jar`.
+The build runs regression tests for XP commands and SQLite persistence.
+
+Stop the server before replacing the old TotalXPRewards JAR. Keep the existing
+`plugins/TotalXPRewards` folder, including `config.yml`, `lang.yml`, and
+`totalxp.db`. Version 1.0.3 uses the same configuration and database schema.
+
+For a running local server with RCON already enabled, run
+`python tools/paper_smoke_test.py --server ../../server --stop` to check plugin
+startup, console commands, reload, and config preservation, then stop gracefully.
+This smoke test does not exercise a real player's in-game interactions.
 
 ---
 
