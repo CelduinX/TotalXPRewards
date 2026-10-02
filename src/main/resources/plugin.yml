@@ -4,6 +4,7 @@ version: ${version}
 api-version: '26.2'
 author: CelduinX
 description: Tracks total XP per player and executes rewards based on thresholds.
+depend: [LuckPerms]
 softdepend: [PlaceholderAPI]
 commands:
   totalxp:

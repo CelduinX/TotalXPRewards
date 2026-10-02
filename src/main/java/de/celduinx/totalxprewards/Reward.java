@@ -18,6 +18,7 @@ public class Reward {
     private final List<String> commands;
     private final String broadcast;
     private final String name;
+    private final String group;
 
     /**
      * Creates a new reward definition.
@@ -28,10 +29,15 @@ public class Reward {
      * @param name      the display name of this rank
      */
     public Reward(long threshold, List<String> commands, String broadcast, String name) {
+        this(threshold, commands, broadcast, name, null);
+    }
+
+    public Reward(long threshold, List<String> commands, String broadcast, String name, String group) {
         this.threshold = threshold;
         this.commands = commands;
         this.broadcast = broadcast;
         this.name = name;
+        this.group = group;
     }
 
     /**
@@ -61,4 +67,6 @@ public class Reward {
     public String getName() {
         return name;
     }
+
+    public String getGroup() { return group; }
 }

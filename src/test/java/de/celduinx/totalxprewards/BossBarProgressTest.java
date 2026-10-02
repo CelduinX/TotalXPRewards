@@ -86,7 +86,7 @@ class BossBarProgressTest {
             lang.when(() -> Lang.get("max-rank")).thenReturn("Max Rank");
             bukkit.when(Bukkit::getOnlinePlayers).thenReturn(List.of());
             BossBar bar = mock(BossBar.class);
-            bukkit.when(() -> Bukkit.createBossBar("", BarColor.BLUE, BarStyle.SOLID)).thenReturn(bar);
+            bukkit.when(() -> Bukkit.createBossBar("", BarColor.GREEN, BarStyle.SEGMENTED_20)).thenReturn(bar);
             Player player = mock(Player.class);
             when(player.getUniqueId()).thenReturn(UUID.randomUUID());
             when(player.getName()).thenReturn("Tester");
@@ -108,7 +108,7 @@ class BossBarProgressTest {
             verify(bar).setTitle("164 offen | 626 gesamt | 790 Ziel");
             manager.update(player, 100000);
             verify(bar).setTitle("Fertig 100/100");
-            bukkit.verify(() -> Bukkit.createBossBar("", BarColor.BLUE, BarStyle.SOLID), times(1));
+            bukkit.verify(() -> Bukkit.createBossBar("", BarColor.GREEN, BarStyle.SEGMENTED_20), times(1));
         }
     }
 }

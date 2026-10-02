@@ -40,6 +40,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     private PlayerDataManager playerDataManager;
     private volatile ProgressionSettings progressionSettings = ProgressionSettings.DEFAULT;
     private ProgressionService progressionService;
+    private RankGroups rankGroups;
 
     public ProgressionSettings getProgressionSettings() { return progressionSettings; }
     public ProgressionService getProgressionService() { return progressionService; }
@@ -74,6 +75,8 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
 
         // Load config + language + rewards
         reloadSettings();
+        this.rankGroups = new RankGroups(this);
+        rankGroups.validate(rewards);
 
         // Load rewards before calculating ranks for cached players.
         this.playerDataManager = new PlayerDataManager(this);
@@ -84,6 +87,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
 
         // Register event listener
         getServer().getPluginManager().registerEvents(new XPListener(this), this);
+        rankGroups.listen();
 
         // Register commands
         CommandTotalXP cmd = new CommandTotalXP(this);
@@ -105,6 +109,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (progressionService != null) progressionService.close();
+        if (rankGroups != null) rankGroups.close();
         if (bossBarManager != null) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 bossBarManager.remove(player);
@@ -222,6 +227,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         progressionSettings = candidate;
         Lang.reload(this);
         loadRewards();
+        if (rankGroups != null) rankGroups.validate(rewards);
         if (bossBarManager != null) {
             bossBarManager.reload();
         }
@@ -247,6 +253,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 List<String> commands = section.getStringList(key + ".commands");
                 String broadcast = section.getString(key + ".broadcast", "");
                 String name = section.getString(key + ".name", "Rank " + threshold);
+                String group = section.getString(key + ".group");
 
                 // Backwards compatibility: "command: <string>"
                 if (commands.isEmpty()) {
@@ -254,6 +261,10 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                     if (single != null && !single.isEmpty()) {
                         commands = java.util.Collections.singletonList(single);
                     }
+                }
+                if (commands.stream().filter(java.util.Objects::nonNull)
+                        .anyMatch(command -> command.strip().matches("(?i)^/?(lp|luckperms)(:luckperms)?\\s+.*"))) {
+                    throw new IllegalArgumentException("LuckPerms commands are not allowed in XP rewards at " + key);
                 }
 
                 // Skip invalid entries
@@ -263,7 +274,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                     continue;
                 }
 
-                Reward reward = new Reward(threshold, commands, broadcast, name);
+                Reward reward = new Reward(threshold, commands, broadcast, name, group);
                 rewards.put(threshold, reward);
 
             } catch (NumberFormatException e) {
@@ -290,6 +301,8 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         return playerDataManager;
     }
 
+    public RankGroups getRankGroups() { return rankGroups; }
+
     /**
      * Handles an XP gain event.
      */
@@ -301,6 +314,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         if (amount <= 0) {
             return; // ignore zero/negative XP
         }
+        if (rankGroups == null || !rankGroups.isUnlocked(player.getUniqueId())) return;
 
         UUID uuid = player.getUniqueId();
         PlayerData data = playerDataManager.getData(uuid);
@@ -338,20 +352,23 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             if (database.hasReward(uuid, threshold)) {
                 continue;
             }
+            if (!rankGroups.isUnlocked(uuid)) return;
 
             Reward reward = entry.getValue();
-            executeReward(player, reward, newTotal, threshold);
+            if (!executeReward(player, reward, newTotal, threshold)) return;
             database.setRewardGiven(uuid, threshold);
         }
+        rankGroups.sync(player);
     }
 
     /**
      * Executes all commands and broadcast for a reward.
      */
-    private void executeReward(Player player, Reward reward, long xp, long threshold) {
+    private boolean executeReward(Player player, Reward reward, long xp, long threshold) {
 
         // Run commands
         for (String command : reward.getCommands()) {
+            if (!rankGroups.isUnlocked(player.getUniqueId())) return false;
             if (command == null || command.isEmpty()) {
                 continue;
             }
@@ -373,6 +390,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 Bukkit.broadcastMessage(Lang.get("prefix") + msg);
             }
         }
+        return true;
     }
 
     /**

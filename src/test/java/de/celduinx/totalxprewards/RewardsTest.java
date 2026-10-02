@@ -19,6 +19,25 @@ import static org.mockito.Mockito.*;
 
 class RewardsTest {
     @Test
+    void guestXpIsNotRecordedOrRewarded() throws ReflectiveOperationException {
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        Player player = mock(Player.class);
+        UUID uuid = UUID.randomUUID();
+        when(player.getUniqueId()).thenReturn(uuid);
+        PlayerData data = new PlayerData(uuid, "Guest", 0);
+        PlayerDataManager manager = mock(PlayerDataManager.class);
+        when(manager.getData(uuid)).thenReturn(data);
+        RankGroups ranks = mock(RankGroups.class);
+        setField(plugin, "rankGroups", ranks);
+        setField(plugin, "playerDataManager", manager);
+        doCallRealMethod().when(plugin).handleXpGain(any(), anyInt(), any());
+        plugin.handleXpGain(player, 1000, null);
+        plugin.handleXpGain(player, 1000, null);
+        assertEquals(0, data.getTotalXp());
+        verifyNoInteractions(manager);
+    }
+
+    @Test
     void parsesLegacyAndRgbTextWithPaperAdventureFive() {
         TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
         Player player = mock(Player.class);
@@ -49,6 +68,9 @@ class RewardsTest {
         setField(plugin, "playerDataManager", manager);
         setField(plugin, "database", database);
         setField(plugin, "rewards", rewards);
+        RankGroups rankGroups = mock(RankGroups.class);
+        when(rankGroups.isUnlocked(uuid)).thenReturn(true);
+        setField(plugin, "rankGroups", rankGroups);
         when(plugin.getRankName(anyLong())).thenReturn("First Rank");
         when(plugin.format(eq(player), anyString(), anyLong(), anyLong(), eq(false)))
                 .thenAnswer(i -> i.getArgument(1));

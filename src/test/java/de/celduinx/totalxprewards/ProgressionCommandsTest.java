@@ -18,6 +18,7 @@ class ProgressionCommandsTest {
             XPDatabase db = mock(XPDatabase.class);
             when(f.plugin.getDatabase()).thenReturn(db);
             when(f.plugin.getBossBarManager()).thenReturn(mock(BossBarManager.class));
+            when(f.plugin.getRankGroups()).thenReturn(mock(RankGroups.class));
             when(f.plugin.getRankName(anyLong())).thenReturn("Rank");
             f.bukkit.when(() -> Bukkit.selectEntities(f.player, "@a")).thenReturn(List.of(f.player));
             f.data.getProgression().accept(750, 1, ProgressionSettings.DEFAULT);

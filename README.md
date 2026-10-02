@@ -6,13 +6,47 @@ Fully configurable, translation-ready, and built for Paper 26.2 (Java 25).
 ## Building and updating
 
 With JDK 25 installed, run `./gradlew build` (`gradlew.bat build` on Windows).
-The plugin JAR is written to `build/libs/TotalXPRewards-1.1.1.jar`.
+The plugin JAR is written to `build/libs/TotalXPRewards-1.2.0.jar`.
 The build runs regression tests for budgets, activity, farms, commands, rewards and SQLite persistence.
 
 Stop the server before replacing the old TotalXPRewards JAR. Keep the existing
 `plugins/TotalXPRewards` folder, including `config.yml`, `lang.yml`, and
 `totalxp.db`. Version 1.1.0 adds a `progression` config section and a
 `player_progression` SQLite table. Existing XP, reward history and custom ranks are retained.
+
+Version 1.2.0 requires LuckPerms and an explicit `group` for every reward threshold.
+The bundled configuration maps all 100 thresholds to existing server groups;
+create those groups in LuckPerms before using this configuration elsewhere.
+Existing installations must add their own explicit mappings to `config.yml`.
+Missing groups disable rank progression. Keep `totalxp.db` and its reward history.
+
+## SelfUnlock and LuckPerms ranks (1.2.0)
+
+Only a direct, global, permanent LuckPerms `spieler` parent unlocks rank XP and
+rank rewards. Effective inheritance and permissions do not count. Vanilla XP is
+unchanged. SelfUnlock should grant `spieler` with `lp user {uuid} parent add spieler`
+and use a private, strong password. TotalXPRewards never grants `spieler`.
+
+Each reward threshold has an explicit LuckPerms group, for example:
+
+```yaml
+rewards:
+  '3260':
+    group: xp_abenteurer
+    name: '&aAbenteurer'
+  '30000':
+    group: xp_legende
+    name: '&6Legende'
+```
+
+Rank changes remove only previous XP rank parents and add the matching new
+parent through the LuckPerms API. Independent and team parents are retained.
+The plugin reconciles ranks at login and after the LuckPerms unlock mutation.
+Reconciliation does not run item rewards again. Rank groups receive a display
+name, prefix at priority 40 and weight 40; moderator/admin should have higher
+weights so they remain visible with `primary-group-calculation: parents-by-weight`.
+Inspect users with old XP groups but without direct `spieler` individually;
+old rank membership is not proof of SelfUnlock completion.
 
 For a running local server with RCON already enabled, run
 `python tools/paper_smoke_test.py --server ../../server --stop` to check plugin

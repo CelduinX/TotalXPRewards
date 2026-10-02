@@ -58,3 +58,11 @@
 ## 🔧 Refactoring
 *   **PlayerData Manager**: Centralized data handling into a new [PlayerDataManager] class for cleaner and more maintainable code.
 *   **Cache-First Logic**: Commands (`/totalxp set/get`) now utilize the cache for online players, reducing unnecessary database queries.
+# TotalXPRewards v1.2.0 - SelfUnlock and LuckPerms rank integration
+
+* Require a direct, global `spieler` parent before recording rank XP or issuing rewards; vanilla XP remains unchanged.
+* Map each of the 100 thresholds to an explicit, existing LuckPerms group, including `xp_abenteurer` and `xp_legende`.
+* Reconcile the XP parent after unlock, on login and after admin XP changes, preserving `spieler` and independent groups.
+* Set rank group display names, prefixes and weights below moderator/admin through the LuckPerms API.
+* Report old XP group users without direct `spieler`; never infer an unlock or replay item rewards.
+* Add guest, rank transition and independent group tests.

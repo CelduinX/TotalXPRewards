@@ -71,6 +71,7 @@ public class XPListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+        if (plugin.getRankGroups() != null) plugin.getRankGroups().sync(event.getPlayer());
         if (plugin.getBossBarManager() != null) {
             PlayerData data = plugin.getPlayerDataManager().getData(event.getPlayer());
             if (data != null) {
