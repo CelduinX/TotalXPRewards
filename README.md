@@ -2,7 +2,7 @@
 
 Ränge durch gesammelte Erfahrung für Paper-Server. Spieler verdienen Rang-XP beim Spielen, steigen an festgelegten XP-Schwellen auf und erhalten die von dir konfigurierten Belohnungen. TotalXPRewards verwaltet die zugehörigen LuckPerms-Gruppen und stellt Werte für TAB und andere Plugins über PlaceholderAPI bereit.
 
-**Version:** 1.5.0 · **Minecraft/Paper:** 26.2 · **Benötigt:** LuckPerms · **Optional:** PlaceholderAPI
+**Version:** 1.6.0 · **Minecraft/Paper:** 26.2 · **Benötigt:** LuckPerms · **Optional:** PlaceholderAPI
 
 [Neueste Version herunterladen](https://github.com/CelduinX/TotalXPRewards/releases/latest)
 
@@ -12,6 +12,7 @@ Ränge durch gesammelte Erfahrung für Paper-Server. Spieler verdienen Rang-XP b
 - Automatischer Wechsel der zugeordneten LuckPerms-Ranggruppe
 - Farbige Rangnamen mit `&`-Farbcodes oder MiniMessage, einschließlich Gradienten
 - BossBar mit Rangfortschritt; dauerhaft oder nur nach XP-Gewinn sichtbar
+- Persönliches Scoreboard mit aktuellem Rang und nächster Item-Belohnung; dauerhaft oder kurz nach XP-Gewinn sichtbar
 - Konfigurierbare Begrenzung für Rang-XP gegen AFK-Spiel und Mob-Farmen; normale Minecraft-XP bleiben erhalten
 - Konsolenbefehle und Nachrichten als Rangbelohnung
 - Item-Belohnungen, die bei vollem Inventar vor dem Spieler liegen bleiben
@@ -21,7 +22,7 @@ Ränge durch gesammelte Erfahrung für Paper-Server. Spieler verdienen Rang-XP b
 ## Installation und Update
 
 1. Server stoppen. Vor einem Update `plugins/TotalXPRewards/` und die LuckPerms-Daten sichern.
-2. Die JAR `TotalXPRewards-1.5.0-mc26.2.jar` in den Ordner `plugins/` legen. Eine ältere TotalXPRewards-JAR aus diesem Ordner entfernen.
+2. Die JAR `TotalXPRewards-1.6.0-mc26.2.jar` in den Ordner `plugins/` legen. Eine ältere TotalXPRewards-JAR aus diesem Ordner entfernen.
 3. Server starten. Beim ersten Start werden `config.yml`, `ranks.yml` und `lang.yml` unter `plugins/TotalXPRewards/` angelegt.
 4. Die Gruppen aus `ranks.yml` in LuckPerms anlegen. Jede Rangdefinition braucht eine vorhandene, eigene Gruppe.
 5. Server neu starten und `/txp doctor` ausführen.
@@ -53,6 +54,48 @@ rewards:
 Ein Spieler sammelt Rang-XP und erhält Rangbelohnungen erst, wenn er die LuckPerms-Gruppe `spieler` **direkt und dauerhaft** besitzt. Eine nur geerbte oder zeitlich begrenzte Gruppenzugehörigkeit reicht dafür nicht. Die Ränge aus `ranks.yml` werden vom Plugin verwaltet; unabhängige Gruppen wie Team- oder Adminränge bleiben bestehen.
 
 Beim Serverstart werden die konfigurierten Rangnamen als LuckPerms-Suffix aktualisiert. Ändere den Suffix dieser Ranggruppen daher in `ranks.yml` über `name`, nicht manuell in LuckPerms.
+
+## Persönliches Scoreboard
+
+Das Scoreboard ist zunächst ausgeschaltet. Ergänze in `plugins/TotalXPRewards/config.yml`:
+
+```yaml
+scoreboard:
+  enabled: true
+  dynamic-mode: false
+  timeout: 10
+  title: '&aTotal XP'
+  lines:
+    - '&7Aktueller Rang:'
+    - '%current_rank% &7(%rank_number%/%rank_count%)'
+    - ''
+    - '&7Nächste Belohnung:'
+    - '%next_reward_rank% &7(Rang %next_reward_number%)'
+    - '%reward_items%'
+  max-lines:
+    - '&7Aktueller Rang:'
+    - '%current_rank% &7(%rank_number%/%rank_count%)'
+    - ''
+    - '&aAlle Item-Belohnungen erreicht!'
+```
+
+Bei `dynamic-mode: true` erscheint die Seitenleiste nach einem XP-Gewinn für `timeout` Sekunden. `false` zeigt sie dauerhaft. Beim Beitritt erscheint sie ebenfalls zunächst; im dynamischen Modus verschwindet sie nach dem Timeout. Änderungen werden mit `/txp reload` geladen. Titel und Zeilen verstehen `&`-Farben und MiniMessage sowie die üblichen TotalXPRewards-Platzhalter. Für die nächste Belohnung gibt es `%next_reward_rank%`, `%next_reward_number%`, `%next_reward_xp%`, `%next_reward_remaining_xp%` und `%reward_items%`. Letzterer steht allein in einer Zeile und erzeugt eine Zeile pro Item. Insgesamt zeigt Minecraft höchstens 15 Scoreboard-Zeilen.
+
+Das Plugin sucht die nächste Rangstufe mit einem `give %player% …`-Befehl und zeigt deren Gegenstände automatisch an. Andere Belohnungsbefehle lassen sich in `ranks.yml` für die Anzeige beschriften:
+
+```yaml
+  '4540':
+    group: entdecker_i
+    name: '<green>Entdecker I</green>'
+    commands:
+      - 'give %player% diamond 4'
+      - 'give %player% golden_carrot 16'
+    scoreboard-rewards:
+      - '&7- &f4 Diamanten'
+      - '&7- &f16 goldene Karotten'
+```
+
+`scoreboard-rewards` ersetzt die automatische Itemliste dieser Rangstufe und eignet sich auch für Belohnungen aus anderen Plugins. Beim höchsten beziehungsweise letzten Rang mit anzeigbarer Belohnung gelten die `max-lines`. Wenn TAB ebenfalls ein Scoreboard anzeigen soll, muss dessen Scoreboard-Funktion ausgeschaltet sein; seine Tab-Liste und Teams können weiterlaufen.
 
 ## Anzeige und Platzhalter
 

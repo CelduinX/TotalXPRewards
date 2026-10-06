@@ -4,6 +4,9 @@ rewards:
   # 'name':      The display name of this rank. Used in %current_rank%/%next_rank%.
   # 'commands':  List of commands to run (without /). Run as CONSOLE.
   # 'broadcast': Message to broadcast to the server when reached.
+  # 'scoreboard-rewards': Optional display lines for the sidebar. If absent,
+  #   vanilla 'give %player% <item> <amount>' commands are shown automatically.
+  #   Set this for rewards from other plugins or custom descriptions.
   #
   # BALANCING:
   # - 100 ranks

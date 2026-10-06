@@ -47,6 +47,27 @@ bossbar:
   # Time in seconds before the BossBar hides itself (only used if dynamic-mode is true).
   timeout: 10
 
+# Persoenliche Seitenleiste. TABs eigene Scoreboard-Funktion sollte deaktiviert sein.
+scoreboard:
+  enabled: false
+  # Wie bei der BossBar: nach XP-Gewinn kurz anzeigen und dann ausblenden.
+  dynamic-mode: false
+  timeout: 10
+  title: '&aTotal XP'
+  # Bis zu 15 sichtbare Zeilen. %reward_items% erzeugt eine Zeile je Item.
+  lines:
+    - '&7Aktueller Rang:'
+    - '%current_rank% &7(%rank_number%/%rank_count%)'
+    - ''
+    - '&7Nächste Belohnung:'
+    - '%next_reward_rank% &7(Rang %next_reward_number%)'
+    - '%reward_items%'
+  max-lines:
+    - '&7Aktueller Rang:'
+    - '%current_rank% &7(%rank_number%/%rank_count%)'
+    - ''
+    - '&aAlle Item-Belohnungen erreicht!'
+
 config-version: 3
 progression:
   enabled: true

@@ -19,6 +19,7 @@ public class Reward {
     private final String broadcast;
     private final String name;
     private final String group;
+    private final List<String> scoreboardRewards;
 
     /**
      * Creates a new reward definition.
@@ -33,11 +34,17 @@ public class Reward {
     }
 
     public Reward(long threshold, List<String> commands, String broadcast, String name, String group) {
+        this(threshold, commands, broadcast, name, group, List.of());
+    }
+
+    public Reward(long threshold, List<String> commands, String broadcast, String name, String group,
+            List<String> scoreboardRewards) {
         this.threshold = threshold;
         this.commands = commands;
         this.broadcast = broadcast;
         this.name = name;
         this.group = group;
+        this.scoreboardRewards = List.copyOf(scoreboardRewards);
     }
 
     /**
@@ -69,4 +76,6 @@ public class Reward {
     }
 
     public String getGroup() { return group; }
+
+    public List<String> getScoreboardRewards() { return scoreboardRewards; }
 }

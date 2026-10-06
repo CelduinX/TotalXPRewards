@@ -39,6 +39,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     private XPDatabase database;
     private volatile Map<Long, Reward> rewards = Map.of();
     private BossBarManager bossBarManager;
+    private ScoreboardManager scoreboardManager;
     private PlayerDataManager playerDataManager;
     private volatile ProgressionSettings progressionSettings = ProgressionSettings.DEFAULT;
     private ProgressionService progressionService;
@@ -97,6 +98,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
 
         // Initialise BossBar manager
         this.bossBarManager = new BossBarManager(this);
+        this.scoreboardManager = new ScoreboardManager(this);
         this.progressionService = new ProgressionService(this);
 
         // Register event listener
@@ -129,6 +131,9 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 bossBarManager.remove(player);
             }
+        }
+        if (scoreboardManager != null) {
+            for (Player player : Bukkit.getOnlinePlayers()) scoreboardManager.remove(player);
         }
         if (playerDataManager != null) {
             playerDataManager.close();
@@ -290,6 +295,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             if (!problems.isEmpty()) throw new IllegalArgumentException(String.join("; ", problems));
         }
         BossBarManager.validateConfig(disk);
+        ScoreboardManager.validateConfig(disk);
         if (progressionService != null) {
             for (Player p : Bukkit.getOnlinePlayers()) progressionService.settlePlayer(p);
         }
@@ -301,6 +307,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         if (bossBarManager != null) {
             bossBarManager.reload();
         }
+        if (scoreboardManager != null) scoreboardManager.reload();
     }
 
     /**
@@ -327,6 +334,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             String broadcast = section.getString(key + ".broadcast", "");
             String name = section.getString(key + ".name", "Rank " + threshold);
             String group = section.getString(key + ".group");
+            List<String> scoreboardRewards = section.getStringList(key + ".scoreboard-rewards");
             if (name == null || name.isBlank())
                 throw new IllegalArgumentException("Missing rank name at XP " + key);
             if (commands.isEmpty()) {
@@ -340,7 +348,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 throw new IllegalArgumentException("LuckPerms commands are not allowed in XP rewards at " + key);
             }
 
-            Reward reward = new Reward(threshold, commands, broadcast, name, group);
+            Reward reward = new Reward(threshold, commands, broadcast, name, group, scoreboardRewards);
             if (candidate.putIfAbsent(threshold, reward) != null)
                 throw new IllegalArgumentException("Duplicate rank XP threshold: " + key);
         }
@@ -360,6 +368,8 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     public BossBarManager getBossBarManager() {
         return bossBarManager;
     }
+
+    ScoreboardManager getScoreboardManager() { return scoreboardManager; }
 
     public PlayerDataManager getPlayerDataManager() {
         return playerDataManager;
@@ -403,6 +413,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         if (bossBarManager != null) {
             bossBarManager.update(player, newTotal);
         }
+        if (scoreboardManager != null) scoreboardManager.update(player, newTotal);
 
         // Check reward thresholds
         try {

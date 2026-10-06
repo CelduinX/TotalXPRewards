@@ -78,6 +78,12 @@ public class XPListener implements Listener {
                 plugin.getBossBarManager().update(event.getPlayer(), data.getTotalXp());
             }
         }
+        // TAB may install its per-player scoreboard during join; attach afterwards.
+        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!event.getPlayer().isOnline() || plugin.getScoreboardManager() == null) return;
+            PlayerData data = plugin.getPlayerDataManager().getData(event.getPlayer());
+            if (data != null) plugin.getScoreboardManager().update(event.getPlayer(), data.getTotalXp());
+        }, 20L);
     }
 
     @EventHandler
@@ -87,6 +93,7 @@ public class XPListener implements Listener {
         if (plugin.getBossBarManager() != null) {
             plugin.getBossBarManager().remove(event.getPlayer());
         }
+        if (plugin.getScoreboardManager() != null) plugin.getScoreboardManager().remove(event.getPlayer());
     }
 
     private void handleXpCommand() {

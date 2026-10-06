@@ -189,6 +189,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             // If online, update bossbar
             if (target.isOnline()) {
                 plugin.getBossBarManager().update((Player) target, amount);
+                if (plugin.getScoreboardManager() != null) plugin.getScoreboardManager().update((Player) target, amount);
                 plugin.getRankGroups().sync((Player) target);
             }
         }
@@ -227,6 +228,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             sender.sendMessage(msg);
             if (target.isOnline()) {
                 plugin.getBossBarManager().update((Player) target, 0);
+                if (plugin.getScoreboardManager() != null) plugin.getScoreboardManager().update((Player) target, 0);
                 plugin.getRankGroups().sync((Player) target);
             }
         }

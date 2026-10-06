@@ -1,3 +1,10 @@
+# TotalXPRewards v1.6.0 - Personal reward scoreboard
+
+* Add an optional right-side scoreboard with current rank and next item reward.
+* Find the next rank with visible rewards, skipping rank-ups without items.
+* Derive item names and quantities from vanilla give commands, with optional custom display lines in ranks.yml.
+* Make title, lines, permanent/dynamic display and timeout configurable.
+
 # TotalXPRewards v1.5.0 - Reliability and admin tools
 
 * Save periodic player snapshots off the server tick, cache reward history at login and flush queued saves before shutdown.
