@@ -63,7 +63,7 @@ public final class ProgressionService implements Listener {
         }
         deaths.values().removeIf(d -> d.expires() < now);
         if (now - lastSave >= 60_000_000_000L) {
-            plugin.getPlayerDataManager().saveAll();
+            plugin.getPlayerDataManager().saveAllAsync();
             lastSave = now;
         }
     }

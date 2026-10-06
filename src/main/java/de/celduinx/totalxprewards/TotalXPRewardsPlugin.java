@@ -37,7 +37,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     private static TotalXPRewardsPlugin instance;
 
     private XPDatabase database;
-    private final Map<Long, Reward> rewards = new TreeMap<>();
+    private volatile Map<Long, Reward> rewards = Map.of();
     private BossBarManager bossBarManager;
     private PlayerDataManager playerDataManager;
     private volatile ProgressionSettings progressionSettings = ProgressionSettings.DEFAULT;
@@ -91,6 +91,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             placeholderExpansion = new TotalXPPlaceholderExpansion(this);
             if (!placeholderExpansion.register()) {
                 getLogger().warning("Could not register TotalXPRewards PlaceholderAPI expansion.");
+                placeholderExpansion = null;
             }
         }
 
@@ -130,7 +131,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             }
         }
         if (playerDataManager != null) {
-            playerDataManager.saveAll();
+            playerDataManager.close();
         }
         if (database != null) {
             database.close();
@@ -284,14 +285,18 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             throw new IllegalArgumentException("Cannot read ranks.yml: " + e.getMessage(), e);
         }
         Map<Long, Reward> candidateRewards = loadRewards(rankDisk.getConfigurationSection("rewards"));
+        if (rankGroups != null) {
+            List<String> problems = rankGroups.configurationProblems(candidateRewards);
+            if (!problems.isEmpty()) throw new IllegalArgumentException(String.join("; ", problems));
+        }
+        BossBarManager.validateConfig(disk);
         if (progressionService != null) {
             for (Player p : Bukkit.getOnlinePlayers()) progressionService.settlePlayer(p);
         }
         reloadConfig();
-        progressionSettings = candidate;
         Lang.reload(this);
-        rewards.clear();
-        rewards.putAll(candidateRewards);
+        progressionSettings = candidate;
+        rewards = java.util.Collections.unmodifiableMap(new TreeMap<>(candidateRewards));
         if (rankGroups != null) rankGroups.validate(rewards);
         if (bossBarManager != null) {
             bossBarManager.reload();
@@ -309,40 +314,35 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         Map<Long, Reward> candidate = new TreeMap<>();
 
         for (String key : section.getKeys(false)) {
+            long threshold;
             try {
-                long threshold = Long.parseLong(key);
-
-                // Load commands list
-                List<String> commands = section.getStringList(key + ".commands");
-                String broadcast = section.getString(key + ".broadcast", "");
-                String name = section.getString(key + ".name", "Rank " + threshold);
-                String group = section.getString(key + ".group");
-
-                // Backwards compatibility: "command: <string>"
-                if (commands.isEmpty()) {
-                    String single = section.getString(key + ".command");
-                    if (single != null && !single.isEmpty()) {
-                        commands = java.util.Collections.singletonList(single);
-                    }
-                }
-                if (commands.stream().filter(java.util.Objects::nonNull)
-                        .anyMatch(command -> command.strip().matches("(?i)^/?(lp|luckperms)(:luckperms)?\\s+.*"))) {
-                    throw new IllegalArgumentException("LuckPerms commands are not allowed in XP rewards at " + key);
-                }
-
-                // Skip invalid entries
-                if ((commands == null || commands.isEmpty()) &&
-                        (broadcast == null || broadcast.isEmpty())) {
-                    getLogger().warning("Reward " + key + " has no commands and no broadcast, skipping.");
-                    continue;
-                }
-
-                Reward reward = new Reward(threshold, commands, broadcast, name, group);
-                candidate.put(threshold, reward);
-
+                threshold = Long.parseLong(key);
             } catch (NumberFormatException e) {
-                getLogger().warning("Invalid reward key (not numeric): " + key);
+                throw new IllegalArgumentException("Invalid rank XP threshold: " + key, e);
             }
+            if (threshold <= 0) throw new IllegalArgumentException("Rank XP threshold must be positive: " + key);
+
+            // Backwards compatibility: a single "command" is still accepted.
+            List<String> commands = section.getStringList(key + ".commands");
+            String broadcast = section.getString(key + ".broadcast", "");
+            String name = section.getString(key + ".name", "Rank " + threshold);
+            String group = section.getString(key + ".group");
+            if (name == null || name.isBlank())
+                throw new IllegalArgumentException("Missing rank name at XP " + key);
+            if (commands.isEmpty()) {
+                String single = section.getString(key + ".command");
+                if (single != null && !single.isEmpty()) {
+                    commands = java.util.Collections.singletonList(single);
+                }
+            }
+            if (commands.stream().filter(java.util.Objects::nonNull)
+                    .anyMatch(command -> command.strip().matches("(?i)^/?(lp|luckperms)(:luckperms)?\\s+.*"))) {
+                throw new IllegalArgumentException("LuckPerms commands are not allowed in XP rewards at " + key);
+            }
+
+            Reward reward = new Reward(threshold, commands, broadcast, name, group);
+            if (candidate.putIfAbsent(threshold, reward) != null)
+                throw new IllegalArgumentException("Duplicate rank XP threshold: " + key);
         }
 
         getLogger().info("Loaded " + candidate.size() + " rewards from ranks.yml.");
@@ -366,6 +366,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     }
 
     public RankGroups getRankGroups() { return rankGroups; }
+    public boolean hasPlaceholderExpansion() { return placeholderExpansion != null; }
 
     /**
      * Handles an XP gain event.
@@ -404,6 +405,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         }
 
         // Check reward thresholds
+        try {
         for (Map.Entry<Long, Reward> entry : rewards.entrySet()) {
             long threshold = entry.getKey();
 
@@ -413,7 +415,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             if (threshold <= current) {
                 continue;
             }
-            if (database.hasReward(uuid, threshold)) {
+            if (data.hasLoadedRewardHistory() ? data.hasReward(threshold) : database.hasReward(uuid, threshold)) {
                 continue;
             }
             if (!rankGroups.isUnlocked(uuid)) return;
@@ -421,6 +423,11 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             Reward reward = entry.getValue();
             if (!executeReward(player, reward, newTotal, threshold)) return;
             database.setRewardGiven(uuid, threshold);
+            data.markReward(threshold);
+        }
+        } catch (RuntimeException error) {
+            getLogger().severe("Could not safely award rank XP reward for " + uuid + ": " + error);
+            return;
         }
         rankGroups.sync(player);
     }
@@ -437,13 +444,18 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 continue;
             }
 
+            if (ItemRewardDelivery.deliver(player, command)) continue;
+
             String cmd = format(player, command, xp, threshold, false);
 
             if (cmd.startsWith("/")) {
                 cmd = cmd.substring(1);
             }
 
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+            if (!Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd)) {
+                getLogger().severe("Reward command failed for " + player.getUniqueId() + ": " + cmd);
+                return false;
+            }
         }
 
         // Run broadcast

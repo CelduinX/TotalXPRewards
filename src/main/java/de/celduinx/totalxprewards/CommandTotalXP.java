@@ -50,6 +50,9 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             case "reload":
                 handleReload(sender);
                 break;
+            case "doctor":
+                handleDoctor(sender);
+                break;
             case "show":
                 handleShow(sender);
                 break;
@@ -75,6 +78,8 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             sender.sendMessage(line.replace("%label%", label));
         }
         sender.sendMessage(Lang.get("progression-help").replace("%label%", label));
+        if (sender.hasPermission("totalxp.admin"))
+            sender.sendMessage("§c/" + label + " doctor §7- Check plugin setup");
     }
 
     private List<OfflinePlayer> resolveTargets(CommandSender sender, String arg) {
@@ -213,6 +218,7 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             if (data != null) {
                 data.setTotalXp(0);
                 data.setCurrentRankName(plugin.getRankName(0));
+                data.clearRewardHistory();
                 data.setProgression(new ProgressionState(plugin.getProgressionSettings().capacity()));
                 plugin.getDatabase().saveData(data);
             }
@@ -238,6 +244,28 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
             plugin.getLogger().warning("Configuration rejected; previous settings remain active: " + e.getMessage());
             sender.sendMessage(Lang.get("progression-config-error") + " " + e.getMessage());
         }
+    }
+
+    private void handleDoctor(CommandSender sender) {
+        if (!sender.hasPermission("totalxp.admin")) {
+            sender.sendMessage(Lang.get("no-permission"));
+            return;
+        }
+        sender.sendMessage("§6TotalXPRewards §7" + plugin.getPluginMeta().getVersion() + " §8- Diagnose");
+        sender.sendMessage("§7Datenbank: " + (plugin.getDatabase().isHealthy() ? "§aOK" : "§cFehler"));
+        sender.sendMessage("§7Ränge geladen: §f" + plugin.getRewards().size());
+        RankGroups ranks = plugin.getRankGroups();
+        if (ranks == null) {
+            sender.sendMessage("§7LuckPerms-Ränge: §cNicht initialisiert");
+        } else {
+            List<String> problems = ranks.configurationProblems(plugin.getRewards());
+            sender.sendMessage("§7LuckPerms-Ränge: " + (problems.isEmpty() && ranks.isValid() ? "§aOK" : "§cFehler"));
+            for (String problem : problems) sender.sendMessage("§c- " + problem);
+        }
+        boolean papi = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI");
+        sender.sendMessage("§7PlaceholderAPI: " + (papi
+                ? plugin.hasPlaceholderExpansion() ? "§aAktiv" : "§cErweiterung fehlt"
+                : "§eNicht installiert"));
     }
 
     private void handleStatus(CommandSender sender, String[] args) {
@@ -314,6 +342,8 @@ public class CommandTotalXP implements CommandExecutor, TabCompleter {
                 result.add("reset");
             if ("reload".startsWith(prefix) && sender.hasPermission("totalxp.admin"))
                 result.add("reload");
+            if ("doctor".startsWith(prefix) && sender.hasPermission("totalxp.admin"))
+                result.add("doctor");
             if ("show".startsWith(prefix))
                 result.add("show");
             if ("hide".startsWith(prefix))

@@ -75,11 +75,24 @@ class PersistenceTest {
         try {
             assertEquals(12345, db.getXp(uuid));
             assertTrue(db.hasReward(uuid, 1000));
+            assertEquals(java.util.Set.of(1000L), db.getRewardHistory(uuid));
             assertEquals(1000, db.getProgression(uuid, 1000).budget());
             db.saveProgression(uuid, new ProgressionState(123));
             assertEquals(123, db.getProgression(uuid, 1000).budget());
             assertEquals(12345, db.getXp(uuid));
         } finally { db.close(); }
+    }
+
+    @Test void rewardLookupFailsClosedWhenDatabaseIsUnavailable() {
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("RewardFailureTest"));
+        XPDatabase db = new XPDatabase(plugin);
+        db.close();
+        assertThrows(IllegalStateException.class, () -> db.getXp(UUID.randomUUID()));
+        assertThrows(IllegalStateException.class, () -> db.hasReward(UUID.randomUUID(), 100));
+        assertThrows(IllegalStateException.class, () -> db.setRewardGiven(UUID.randomUUID(), 100));
+        assertFalse(db.isHealthy());
     }
 
     @Test void invalidReloadDoesNotReplaceSettingsOrReadRewards() throws Exception {
@@ -96,6 +109,29 @@ class PersistenceTest {
         java.nio.file.Files.writeString(directory.resolve("config.yml"), "progression: [invalid: yaml\n");
         assertThrows(IllegalArgumentException.class, plugin::reloadSettings);
         assertEquals(ProgressionSettings.DEFAULT, field.get(plugin));
+    }
+
+    @Test void missingLuckPermsGroupRejectsReloadBeforeChangingActiveRanks() throws Exception {
+        Files.writeString(directory.resolve("config.yml"), "config-version: 3\n");
+        Files.writeString(directory.resolve("ranks.yml"), "rewards:\n  '100':\n    group: missing\n"
+                + "    name: 'Test'\n    broadcast: 'Reached'\n");
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("RejectedReloadTest"));
+        RankGroups rankGroups = mock(RankGroups.class);
+        when(rankGroups.configurationProblems(anyMap())).thenReturn(List.of("Missing LuckPerms group: missing"));
+        var groupsField = TotalXPRewardsPlugin.class.getDeclaredField("rankGroups");
+        groupsField.setAccessible(true);
+        groupsField.set(plugin, rankGroups);
+        var rewardsField = TotalXPRewardsPlugin.class.getDeclaredField("rewards");
+        rewardsField.setAccessible(true);
+        var original = java.util.Map.of(50L, new Reward(50, List.of(), "Old", "Old", "old"));
+        rewardsField.set(plugin, original);
+        doCallRealMethod().when(plugin).reloadSettings();
+        assertThrows(IllegalArgumentException.class, plugin::reloadSettings);
+        assertSame(original, rewardsField.get(plugin));
+        verify(plugin, never()).reloadConfig();
+        verify(rankGroups, never()).validate(anyMap());
     }
 
     @Test
@@ -137,6 +173,7 @@ class PersistenceTest {
         try {
             assertEquals(1234, reopened.getXp(uuid));
             assertTrue(reopened.hasReward(uuid, 1000));
+            assertEquals(java.util.Set.of(1000L), reopened.getRewardHistory(uuid));
             ProgressionState restored = reopened.getProgression(uuid, 1000);
             assertEquals(.9, restored.budget(), 1e-9);
             assertEquals(.1, restored.fraction(), 1e-9);
@@ -145,9 +182,37 @@ class PersistenceTest {
             reopened.resetPlayer(uuid);
             assertEquals(0, reopened.getXp(uuid));
             assertFalse(reopened.hasReward(uuid, 1000));
+            assertEquals(java.util.Set.of(), reopened.getRewardHistory(uuid));
             assertEquals(1000, reopened.getProgression(uuid, 1000).budget());
         } finally {
             reopened.close();
         }
+    }
+
+    @Test void periodicSaveUsesSnapshotAndFinalSaveKeepsLatestXp() {
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        XPDatabase database = mock(XPDatabase.class);
+        when(plugin.getDatabase()).thenReturn(database);
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("AsyncSaveTest"));
+        when(plugin.getRankName(anyLong())).thenReturn("Test");
+        UUID uuid = UUID.randomUUID();
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(uuid);
+        when(player.getName()).thenReturn("Tester");
+        java.util.List<Long> saved = new java.util.concurrent.CopyOnWriteArrayList<>();
+        doAnswer(i -> { saved.add(((PlayerData) i.getArgument(0)).getTotalXp()); return null; })
+                .when(database).saveData(any(PlayerData.class));
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(Bukkit::getOnlinePlayers).thenReturn(List.of());
+            bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+            PlayerDataManager manager = new PlayerDataManager(plugin);
+            manager.onJoin(new PlayerJoinEvent(player, (net.kyori.adventure.text.Component) null));
+            PlayerData data = manager.getData(uuid);
+            data.setTotalXp(10);
+            manager.saveAllAsync();
+            data.setTotalXp(20);
+            manager.close();
+        }
+        assertEquals(List.of(10L, 20L), saved);
     }
 }

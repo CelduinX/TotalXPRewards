@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'de.celduinx.totalxprewards'
-version = '1.4.0'
+version = '1.5.0'
 
 def minecraftVersion = '26.2'
 

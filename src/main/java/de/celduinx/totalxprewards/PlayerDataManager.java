@@ -11,11 +11,19 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class PlayerDataManager implements Listener {
 
     private final TotalXPRewardsPlugin plugin;
     private final Map<UUID, PlayerData> dataMap = new ConcurrentHashMap<>();
+    private final ExecutorService saveWorker = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "TotalXPRewards-save");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public PlayerDataManager(TotalXPRewardsPlugin plugin) {
         this.plugin = plugin;
@@ -58,6 +66,7 @@ public class PlayerDataManager implements Listener {
             ProgressionSettings settings = plugin.getProgressionSettings();
             data.setProgression(plugin.getDatabase().getProgression(uuid,
                     settings == null ? 1000 : settings.capacity()));
+            data.setRewardHistory(plugin.getDatabase().getRewardHistory(uuid));
             // Calculate Rank
             String rank = plugin.getRankName(xp);
             data.setCurrentRankName(rank);
@@ -73,7 +82,17 @@ public class PlayerDataManager implements Listener {
             if (player != null && plugin.getProgressionService() != null)
                 plugin.getProgressionService().settlePlayer(player);
             // Finish saving before a reconnect or server shutdown can reload/close it.
-            plugin.getDatabase().saveData(data);
+            try {
+                // Run after queued periodic snapshots so an older snapshot cannot
+                // overwrite the final quit state.
+                PlayerData snapshot = data.snapshot();
+                saveWorker.submit(() -> plugin.getDatabase().saveData(snapshot)).get();
+            } catch (java.util.concurrent.ExecutionException e) {
+                throw new IllegalStateException("Could not save XP on quit", e.getCause());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while saving XP on quit", e);
+            }
             dataMap.remove(uuid, data);
 
             // Cleanup BossBar
@@ -87,6 +106,36 @@ public class PlayerDataManager implements Listener {
         for (PlayerData data : dataMap.values()) {
             plugin.getDatabase().saveData(data);
         }
+    }
+
+    /** Snapshot on the server thread, write on one worker to avoid tick stalls. */
+    public void saveAllAsync() {
+        for (PlayerData data : dataMap.values()) {
+            PlayerData snapshot = data.snapshot();
+            saveWorker.execute(() -> {
+                try {
+                    plugin.getDatabase().saveData(snapshot);
+                } catch (RuntimeException e) {
+                    plugin.getLogger().severe("Could not save XP for " + snapshot.getUuid() + ": " + e);
+                }
+            });
+        }
+    }
+
+    public void close() {
+        saveWorker.shutdown();
+        boolean interrupted = false;
+        while (true) {
+            try {
+                if (saveWorker.awaitTermination(30, TimeUnit.SECONDS)) break;
+                plugin.getLogger().warning("Still waiting for queued XP saves.");
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+        // Final current state is written after queued snapshots, before the DB closes.
+        saveAll();
     }
 
     public PlayerData getData(UUID uuid) {

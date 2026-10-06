@@ -1,3 +1,12 @@
+# TotalXPRewards v1.5.0 - Reliability and admin tools
+
+* Save periodic player snapshots off the server tick, cache reward history at login and flush queued saves before shutdown.
+* Reject failed XP and reward-history reads instead of treating database errors as zero XP or missing rewards.
+* Validate LuckPerms groups and BossBar settings before applying a configuration reload.
+* Add `/txp doctor` for database, LuckPerms rank and PlaceholderAPI checks.
+* Deliver configured vanilla `give` rewards directly and drop inventory overflow at the player.
+* Replace the README with an admin-focused guide.
+
 # TotalXPRewards v1.4.0 - PlaceholderAPI expansion
 
 * Add built-in `%totalxprewards_*%` placeholders for rank XP, position, names, groups and thresholds.
@@ -94,3 +103,11 @@
 * Add built-in `%totalxprewards_*%` placeholders for rank XP, position, names, groups and thresholds.
 * Read online player XP from the live cache, so TAB can show rank changes immediately.
 * Support saved offline player XP and document use in TAB and other PlaceholderAPI consumers.
+# TotalXPRewards v1.5.0 - Reliability and admin tools
+
+* Save periodic player snapshots off the server tick and flush queued saves before shutdown.
+* Reject unsafe reward-history lookups instead of treating database errors as missing rewards.
+* Validate LuckPerms groups and BossBar settings before applying a configuration reload.
+* Add `/txp doctor` for database, LuckPerms rank and PlaceholderAPI checks.
+* Deliver configured vanilla `give` rewards directly and drop inventory overflow at the player.
+* Replace the README with an admin-focused guide.

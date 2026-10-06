@@ -23,6 +23,11 @@ public final class ProgressionState {
     public double activeSeconds() { return activeSeconds; }
     public String reason() { return reason; }
     public List<Kill> kills() { return List.copyOf(kills); }
+    public ProgressionState snapshot() {
+        ProgressionState copy = new ProgressionState(budget);
+        copy.restore(fraction, activeSeconds, reason, kills());
+        return copy;
+    }
     public boolean active(long now) { return now < activeUntilNanos; }
 
     public void restore(double fraction, double seconds, String reason, List<Kill> history) {

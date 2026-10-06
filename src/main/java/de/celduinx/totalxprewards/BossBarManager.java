@@ -5,6 +5,7 @@ import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
+import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +31,17 @@ public class BossBarManager {
     public BossBarManager(TotalXPRewardsPlugin plugin) {
         this.plugin = plugin;
         reload();
+    }
+
+    static void validateConfig(FileConfiguration config) {
+        try {
+            BarColor.valueOf(config.getString("bossbar.color", "BLUE").toUpperCase(java.util.Locale.ROOT));
+            BarStyle.valueOf(config.getString("bossbar.style", "SOLID").toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException("Invalid BossBar color or style", e);
+        }
+        if (config.getInt("bossbar.timeout", 10) < 0)
+            throw new IllegalArgumentException("bossbar.timeout must be nonnegative");
     }
 
     /**

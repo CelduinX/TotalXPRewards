@@ -70,7 +70,7 @@ public class XPDatabase {
                                 ")");
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Could not initialise SQLite database: " + e.getMessage());
+            throw new IllegalStateException("Could not initialise SQLite database", e);
         }
     }
 
@@ -101,7 +101,7 @@ public class XPDatabase {
     public long getXp(UUID uuid) {
         synchronized (lock) {
             if (connection == null)
-                return 0L;
+                throw new IllegalStateException("XP database is unavailable");
             String sql = "SELECT xp FROM player_xp WHERE uuid = ?";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setString(1, uuid.toString());
@@ -111,7 +111,7 @@ public class XPDatabase {
                     }
                 }
             } catch (SQLException e) {
-                plugin.getLogger().severe("Error reading XP from database: " + e.getMessage());
+                throw new IllegalStateException("Cannot read XP for " + uuid, e);
             }
             return 0L;
         }
@@ -129,7 +129,7 @@ public class XPDatabase {
     public void setPlayerData(UUID uuid, long xp, String username, String rank) {
         synchronized (lock) {
             if (connection == null)
-                return;
+                throw new IllegalStateException("XP database is unavailable");
             // Upsert with new fields
             String sql = "INSERT INTO player_xp (uuid, xp, username, current_rank) VALUES (?, ?, ?, ?) " +
                     "ON CONFLICT(uuid) DO UPDATE SET " +
@@ -158,7 +158,7 @@ public class XPDatabase {
         // Fallback: Just update XP, leave others as is.
         synchronized (lock) {
             if (connection == null)
-                return;
+                throw new IllegalStateException("XP database is unavailable");
             String sql = "INSERT INTO player_xp (uuid, xp) VALUES (?, ?) " +
                     "ON CONFLICT(uuid) DO UPDATE SET xp = excluded.xp";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -166,7 +166,7 @@ public class XPDatabase {
                 ps.setLong(2, xp);
                 ps.executeUpdate();
             } catch (SQLException e) {
-                plugin.getLogger().severe("Error saving XP to database: " + e.getMessage());
+                throw new IllegalStateException("Cannot save XP for " + uuid, e);
             }
         }
     }
@@ -182,7 +182,7 @@ public class XPDatabase {
     public boolean hasReward(UUID uuid, long threshold) {
         synchronized (lock) {
             if (connection == null)
-                return false;
+                throw new IllegalStateException("XP database is unavailable");
             String sql = "SELECT 1 FROM player_rewards WHERE uuid = ? AND threshold = ?";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setString(1, uuid.toString());
@@ -191,9 +191,8 @@ public class XPDatabase {
                     return rs.next();
                 }
             } catch (SQLException e) {
-                plugin.getLogger().severe("Error checking reward in database: " + e.getMessage());
+                throw new IllegalStateException("Cannot check reward history for " + uuid + " at " + threshold, e);
             }
-            return false;
         }
     }
 
@@ -206,14 +205,43 @@ public class XPDatabase {
     public void setRewardGiven(UUID uuid, long threshold) {
         synchronized (lock) {
             if (connection == null)
-                return;
+                throw new IllegalStateException("XP database is unavailable");
             String sql = "INSERT OR IGNORE INTO player_rewards (uuid, threshold) VALUES (?, ?)";
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setString(1, uuid.toString());
                 ps.setLong(2, threshold);
                 ps.executeUpdate();
             } catch (SQLException e) {
-                plugin.getLogger().severe("Error saving reward to database: " + e.getMessage());
+                throw new IllegalStateException("Cannot save reward history for " + uuid + " at " + threshold, e);
+            }
+        }
+    }
+
+    public java.util.Set<Long> getRewardHistory(UUID uuid) {
+        synchronized (lock) {
+            if (connection == null) throw new IllegalStateException("XP database is unavailable");
+            java.util.Set<Long> history = new java.util.HashSet<>();
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT threshold FROM player_rewards WHERE uuid = ?")) {
+                ps.setString(1, uuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) history.add(rs.getLong(1));
+                }
+                return history;
+            } catch (SQLException e) {
+                throw new IllegalStateException("Cannot load reward history for " + uuid, e);
+            }
+        }
+    }
+
+    public boolean isHealthy() {
+        synchronized (lock) {
+            if (connection == null) return false;
+            try (Statement statement = connection.createStatement();
+                 ResultSet result = statement.executeQuery("SELECT 1")) {
+                return result.next();
+            } catch (SQLException e) {
+                return false;
             }
         }
     }
@@ -226,7 +254,7 @@ public class XPDatabase {
     public void resetPlayer(UUID uuid) {
         synchronized (lock) {
             if (connection == null)
-                return;
+                throw new IllegalStateException("XP database is unavailable");
             try (PreparedStatement ps1 = connection.prepareStatement("DELETE FROM player_xp WHERE uuid = ?");
                     PreparedStatement ps2 = connection.prepareStatement("DELETE FROM player_rewards WHERE uuid = ?");
                     PreparedStatement ps3 = connection.prepareStatement("DELETE FROM player_progression WHERE uuid = ?")) {
@@ -238,7 +266,7 @@ public class XPDatabase {
                 ps3.setString(1, uuid.toString());
                 ps3.executeUpdate();
             } catch (SQLException e) {
-                plugin.getLogger().severe("Error resetting player in database: " + e.getMessage());
+                throw new IllegalStateException("Cannot reset XP for " + uuid, e);
             }
         }
     }

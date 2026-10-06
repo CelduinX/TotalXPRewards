@@ -64,22 +64,15 @@ public final class RankGroups {
     }
 
     void validate(Map<Long, Reward> rewards) {
-        rankNames.clear();
-        valid = !rewards.isEmpty();
-        for (Map.Entry<Long, Reward> entry : rewards.entrySet()) {
-            Reward reward = entry.getValue();
-            String group = reward.getGroup();
-            if (group == null || !group.matches("[a-z0-9_]+") || group.equals("spieler")
-                    || group.equals("admin") || group.equals("moderator")
-                    || !rankNames.add(group) || luckPerms.getGroupManager().getGroup(group) == null) {
-                plugin.getLogger().severe("Invalid or missing LuckPerms rank group at XP " + entry.getKey() + ": " + group);
-                valid = false;
-            }
-        }
+        java.util.List<String> problems = configurationProblems(rewards);
+        valid = problems.isEmpty();
         if (!valid) {
+            for (String problem : problems) plugin.getLogger().severe(problem);
             plugin.getLogger().severe("Rank progression disabled until every configured group exists and is mapped once.");
             return;
         }
+        rankNames.clear();
+        for (Reward reward : rewards.values()) rankNames.add(reward.getGroup());
         // These groups already exist. Never create groups from display titles.
         for (Reward reward : rewards.values()) {
             Group group = luckPerms.getGroupManager().getGroup(reward.getGroup());
@@ -95,6 +88,22 @@ public final class RankGroups {
             });
         }
     }
+
+    java.util.List<String> configurationProblems(Map<Long, Reward> candidate) {
+        java.util.List<String> problems = new java.util.ArrayList<>();
+        if (candidate.isEmpty()) problems.add("No rank definitions were loaded.");
+        Set<String> seen = new HashSet<>();
+        for (Map.Entry<Long, Reward> entry : candidate.entrySet()) {
+            String group = entry.getValue().getGroup();
+            if (group == null || !group.matches("[a-z0-9_]+") || group.equals("spieler")
+                    || group.equals("admin") || group.equals("moderator") || !seen.add(group)
+                    || luckPerms.getGroupManager().getGroup(group) == null)
+                problems.add("Invalid or missing LuckPerms rank group at XP " + entry.getKey() + ": " + group);
+        }
+        return problems;
+    }
+
+    boolean isValid() { return valid; }
 
     static String suffix(String name) {
         return "&r" + RankNameFormatting.formattedName(name) + "&r";

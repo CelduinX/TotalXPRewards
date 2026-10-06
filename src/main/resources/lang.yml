@@ -42,7 +42,7 @@ progression-reason-farm+budget: "Mob-Farm und Rang-XP-Budget"
 # ------------------------------------------------------------------------------
 help:
   - "&8&m-------------------------------------------"
-  - "&a&lTotal XP Rewards &7v1.0.1"
+  - "&a&lTotal XP Rewards"
   - ""
   - "&f/%label% get <player>       &7Check a player's total XP"
   - "&f/%label% show               &7Show your BossBar"

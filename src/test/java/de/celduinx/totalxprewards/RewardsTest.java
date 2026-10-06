@@ -79,6 +79,7 @@ class RewardsTest {
         ConsoleCommandSender console = mock(ConsoleCommandSender.class);
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(Bukkit::getConsoleSender).thenReturn(console);
+            bukkit.when(() -> Bukkit.dispatchCommand(console, "give TestPlayer diamond 1")).thenReturn(true);
             plugin.handleXpGain(player, 20);
             assertEquals(1010, data.getTotalXp());
             assertEquals("First Rank", data.getCurrentRankName());
@@ -87,6 +88,30 @@ class RewardsTest {
             bukkit.verify(() -> Bukkit.dispatchCommand(console, "give TestPlayer diamond 1"), times(1));
             verify(database, times(1)).setRewardGiven(uuid, 1000);
         }
+    }
+
+    @Test void cachedRewardHistoryAvoidsDatabaseLookupOnXpGain() throws ReflectiveOperationException {
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        Player player = mock(Player.class);
+        UUID uuid = UUID.randomUUID();
+        when(player.getUniqueId()).thenReturn(uuid);
+        PlayerData data = new PlayerData(uuid, "Tester", 990);
+        data.setRewardHistory(java.util.Set.of());
+        PlayerDataManager manager = mock(PlayerDataManager.class);
+        when(manager.getData(uuid)).thenReturn(data);
+        XPDatabase database = mock(XPDatabase.class);
+        RankGroups groups = mock(RankGroups.class);
+        when(groups.isUnlocked(uuid)).thenReturn(true);
+        setField(plugin, "playerDataManager", manager);
+        setField(plugin, "database", database);
+        setField(plugin, "rankGroups", groups);
+        setField(plugin, "rewards", new TreeMap<>(java.util.Map.of(1000L,
+                new Reward(1000, List.of(), "", "Test", "test"))));
+        doCallRealMethod().when(plugin).handleXpGain(any(), anyInt(), any());
+        plugin.handleXpGain(player, 20, null);
+        verify(database, never()).hasReward(any(), anyLong());
+        verify(database).setRewardGiven(uuid, 1000);
+        assertTrue(data.hasReward(1000));
     }
 
     private static void setField(Object object, String name, Object value) throws ReflectiveOperationException {
