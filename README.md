@@ -6,7 +6,7 @@ Fully configurable, translation-ready, and built for Paper 26.2 (Java 25).
 ## Building and updating
 
 With JDK 25 installed, run `./gradlew build` (`gradlew.bat build` on Windows).
-The plugin JAR is written to `build/libs/TotalXPRewards-1.3.1-mc26.2.jar`.
+The plugin JAR is written to `build/libs/TotalXPRewards-1.4.0-mc26.2.jar`.
 The build runs regression tests for budgets, activity, farms, commands, rewards and SQLite persistence.
 
 Stop the server before replacing the old TotalXPRewards JAR. Keep the existing
@@ -220,7 +220,57 @@ rewards:
 
 ## 🧩 Placeholders
 
-Available for use in **Chat**, **Broadcasts**, and **BossBar**:
+### PlaceholderAPI in TAB und anderen Plugins (ab 1.4.0)
+
+TotalXPRewards registriert beim Serverstart automatisch eine interne
+PlaceholderAPI-Erweiterung, wenn PlaceholderAPI installiert und aktiviert ist.
+Ein separater `/papi ecloud download` ist nicht nötig. Alle Werte beziehen sich
+auf den Spieler, für den das andere Plugin den Platzhalter auswertet.
+
+| PlaceholderAPI-Platzhalter | Wert |
+| :--- | :--- |
+| `%totalxprewards_xp%` | Gesammelte, akzeptierte Rang-XP insgesamt |
+| `%totalxprewards_rank_number%` | Rangnummer; 0 vor dem ersten Rang |
+| `%totalxprewards_rank_count%` | Anzahl der konfigurierten Ränge |
+| `%totalxprewards_rank_xp%` | XP seit Beginn des aktuellen Rangs |
+| `%totalxprewards_rank_required_xp%` | XP-Abstand vom aktuellen zum nächsten Rang |
+| `%totalxprewards_rank_remaining_xp%` | Bis zum nächsten Rang fehlende XP |
+| `%totalxprewards_rank_start_xp%` | Gesamte XP an der aktuellen Rangschwelle; vor dem ersten Rang 0 |
+| `%totalxprewards_next_rank_xp%` | Gesamte XP an der nächsten Rangschwelle; beim Höchstrang 0 |
+| `%totalxprewards_required_xp%` | Alias für `next_rank_xp` |
+| `%totalxprewards_current_rank%` | Formatierter aktueller Rangname aus `ranks.yml`; vor dem ersten Rang `None` |
+| `%totalxprewards_current_rank_plain%` | Aktueller Rangname ohne Farben |
+| `%totalxprewards_current_rank_group%` | LuckPerms-Gruppe des aktuellen Rangs; vorher leer |
+| `%totalxprewards_next_rank%` | Formatierter nächster Rangname; beim Höchstrang `lang.yml`-Wert `max-rank` |
+| `%totalxprewards_next_rank_plain%` | Nächster Rangname ohne Farben |
+| `%totalxprewards_next_rank_group%` | LuckPerms-Gruppe des nächsten Rangs; beim Höchstrang leer |
+
+`current_rank` und `next_rank` enthalten kompakte `&`-Farbcodes (bei Gradienten
+auch `&#RRGGBB`) statt roher MiniMessage-Tags. Wenn ein Zielplugin diese Codes
+nicht auswertet, verwende die jeweilige `_plain`-Variante. Die Rangnummer wird
+aus der Reihenfolge der XP-Schwellen berechnet, unabhängig vom Gruppennamen.
+Beim Höchstrang sind lokale Rang-XP und die verbleibenden XP 0.
+
+Beispiel für `plugins/TAB/groups.yml` im Abschnitt `_DEFAULT_`, wenn der
+Rangname wie bisher aus dem LuckPerms-Suffix kommt:
+
+```yaml
+_DEFAULT_:
+  tabsuffix: ' &7[Rang %totalxprewards_rank_number%/%totalxprewards_rank_count%] &r%luckperms-suffix%'
+```
+
+Falls dein TAB-Setup den Suffix in `config.yml` statt `groups.yml` definiert,
+setze dieselbe Zeichenfolge dort ein. Prüfe zuerst mit
+`/papi parse me %totalxprewards_rank_number%`, danach mit `/tab reload` in TAB.
+Bei TAB auf einem Proxy ist TAB Bridge auf dem Backend für PlaceholderAPI-Werte
+erforderlich. Die Online-Werte stammen aus dem aktuellen Plugin-Cache; für
+Offline-Abfragen wird der zuletzt gespeicherte XP-Stand verwendet.
+
+### Interne Platzhalter
+
+Diese kurzen Platzhalter gelten nur in TotalXPRewards-Texten (Befehle,
+Broadcasts und BossBar). In TAB und anderen Plugins nutze die obigen
+`%totalxprewards_*%`-Formen.
 
 | Placeholder | Description |
 | :--- | :--- |
@@ -266,9 +316,9 @@ The database now includes a `current_rank` and `username` column, making it easy
 
 - **LuckPerms** (for rank rewards)
 - **Vault** (for economy)
-- **PlaceholderAPI** (for extra placeholders)
+- **PlaceholderAPI** (for TotalXPRewards placeholders and placeholders from other plugins)
 
-The plugin does not depend on them but integrates automatically if installed.
+LuckPerms is required. PlaceholderAPI is optional and detected automatically.
 
 ---
 

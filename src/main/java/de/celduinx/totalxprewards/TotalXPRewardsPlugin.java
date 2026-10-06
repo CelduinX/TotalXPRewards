@@ -43,6 +43,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     private volatile ProgressionSettings progressionSettings = ProgressionSettings.DEFAULT;
     private ProgressionService progressionService;
     private RankGroups rankGroups;
+    private TotalXPPlaceholderExpansion placeholderExpansion;
 
     public ProgressionSettings getProgressionSettings() { return progressionSettings; }
     public ProgressionService getProgressionService() { return progressionService; }
@@ -86,6 +87,12 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
 
         // Load rewards before calculating ranks for cached players.
         this.playerDataManager = new PlayerDataManager(this);
+        if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            placeholderExpansion = new TotalXPPlaceholderExpansion(this);
+            if (!placeholderExpansion.register()) {
+                getLogger().warning("Could not register TotalXPRewards PlaceholderAPI expansion.");
+            }
+        }
 
         // Initialise BossBar manager
         this.bossBarManager = new BossBarManager(this);
@@ -114,6 +121,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (placeholderExpansion != null) placeholderExpansion.unregister();
         if (progressionService != null) progressionService.close();
         if (rankGroups != null) rankGroups.close();
         if (bossBarManager != null) {

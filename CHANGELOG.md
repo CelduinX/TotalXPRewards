@@ -1,3 +1,9 @@
+# TotalXPRewards v1.4.0 - PlaceholderAPI expansion
+
+* Add built-in `%totalxprewards_*%` placeholders for rank XP, position, names, groups and thresholds.
+* Read online player XP from the live cache, so TAB can show rank changes immediately.
+* Support saved offline player XP and document use in TAB and other PlaceholderAPI consumers.
+
 # TotalXPRewards v1.3.1 - Compact suffix and JAR naming
 
 * Remove the leading space before LuckPerms rank suffix text.
@@ -83,3 +89,8 @@
 * Migrate legacy `config.yml` rewards on startup after backing up the existing file; preserve their values and reward history.
 * Reject simultaneous legacy rewards and a separate rank file for manual review.
 * Reload both files together and reject invalid rank YAML before replacing active ranks.
+# TotalXPRewards v1.4.0 - PlaceholderAPI expansion
+
+* Add built-in `%totalxprewards_*%` placeholders for rank XP, position, names, groups and thresholds.
+* Read online player XP from the live cache, so TAB can show rank changes immediately.
+* Support saved offline player XP and document use in TAB and other PlaceholderAPI consumers.
