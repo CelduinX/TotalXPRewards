@@ -6,7 +6,7 @@ Fully configurable, translation-ready, and built for Paper 26.2 (Java 25).
 ## Building and updating
 
 With JDK 25 installed, run `./gradlew build` (`gradlew.bat build` on Windows).
-The plugin JAR is written to `build/libs/TotalXPRewards-1.3.0.jar`.
+The plugin JAR is written to `build/libs/TotalXPRewards-1.3.1-mc26.2.jar`.
 The build runs regression tests for budgets, activity, farms, commands, rewards and SQLite persistence.
 
 Stop the server before replacing the old TotalXPRewards JAR. Keep the existing
@@ -28,13 +28,13 @@ startup stops for manual review rather than choosing one silently. Back up both
 files before upgrading; the server's existing values take priority over the
 bundled defaults.
 
-## MiniMessage rank suffix (1.3.0 v4)
+## MiniMessage rank suffix (1.3.1)
 
 Rank names in `ranks.yml` support MiniMessage, including gradients. On startup,
 the plugin writes the plain text name as the LuckPerms display name and a
 compact legacy/hex-color suffix at priority 40. EssentialsX Chat can render
 that suffix. The suffix contains the colored rank name without added brackets
-or a forced yellow color. Existing rank group metadata is refreshed on startup.
+or a forced yellow color or leading space. Existing rank group metadata is refreshed on startup.
 The compact color format keeps the LuckPerms H2 permission key within its
 200-character limit for the bundled ranks.
 

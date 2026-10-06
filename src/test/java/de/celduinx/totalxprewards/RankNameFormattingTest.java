@@ -14,4 +14,8 @@ class RankNameFormattingTest {
         assertTrue(RankNameFormatting.formattedName("&7Anwärter I").startsWith("&7"));
         assertTrue(RankNameFormatting.formattedName("&6&lLegende").contains("&l"));
     }
+
+    @Test void suffixStartsDirectlyWithTheFormattedRankName() {
+        assertEquals("&r&7Anwärter I&r", RankGroups.suffix("&7Anwärter I"));
+    }
 }

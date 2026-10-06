@@ -1,3 +1,8 @@
+# TotalXPRewards v1.3.1 - Compact suffix and JAR naming
+
+* Remove the leading space before LuckPerms rank suffix text.
+* Name plugin JARs with plugin name, plugin version and Minecraft version.
+
 # TotalXPRewards v1.3.0 MiniMessage suffix v4
 
 * Render `ranks.yml` MiniMessage rank names as compact LuckPerms suffix colors for EssentialsX Chat.

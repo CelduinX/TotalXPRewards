@@ -87,13 +87,17 @@ public final class RankGroups {
             group.data().clear(node -> node instanceof PrefixNode || node instanceof DisplayNameNode
                     || node instanceof SuffixNode || node instanceof WeightNode);
             group.data().add(DisplayNameNode.builder(display).build());
-            group.data().add(SuffixNode.builder(" &r" + RankNameFormatting.formattedName(reward.getName()) + "&r", 40).build());
+            group.data().add(SuffixNode.builder(suffix(reward.getName()), 40).build());
             group.data().add(WeightNode.builder(40).build());
             luckPerms.getGroupManager().saveGroup(group).exceptionally(error -> {
                 plugin.getLogger().severe("Could not save rank group " + group.getName() + ": " + error);
                 return null;
             });
         }
+    }
+
+    static String suffix(String name) {
+        return "&r" + RankNameFormatting.formattedName(name) + "&r";
     }
 
     void listen() {
