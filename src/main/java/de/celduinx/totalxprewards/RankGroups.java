@@ -11,6 +11,7 @@ import net.luckperms.api.node.Node;
 import net.luckperms.api.model.data.DataType;
 import net.luckperms.api.node.types.InheritanceNode;
 import net.luckperms.api.node.types.PrefixNode;
+import net.luckperms.api.node.types.SuffixNode;
 import net.luckperms.api.node.types.DisplayNameNode;
 import net.luckperms.api.node.types.WeightNode;
 import org.bukkit.Bukkit;
@@ -82,11 +83,11 @@ public final class RankGroups {
         // These groups already exist. Never create groups from display titles.
         for (Reward reward : rewards.values()) {
             Group group = luckPerms.getGroupManager().getGroup(reward.getGroup());
-            String display = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', reward.getName()));
+            String display = RankNameFormatting.plainName(ChatColor.translateAlternateColorCodes('&', reward.getName()));
             group.data().clear(node -> node instanceof PrefixNode || node instanceof DisplayNameNode
-                    || node instanceof WeightNode);
+                    || node instanceof SuffixNode || node instanceof WeightNode);
             group.data().add(DisplayNameNode.builder(display).build());
-            group.data().add(PrefixNode.builder("&e[" + display + "] ", 40).build());
+            group.data().add(SuffixNode.builder(" &r" + RankNameFormatting.formattedName(reward.getName()) + "&r", 40).build());
             group.data().add(WeightNode.builder(40).build());
             luckPerms.getGroupManager().saveGroup(group).exceptionally(error -> {
                 plugin.getLogger().severe("Could not save rank group " + group.getName() + ": " + error);

@@ -1,3 +1,9 @@
+# TotalXPRewards v1.3.0 MiniMessage suffix v4
+
+* Render `ranks.yml` MiniMessage rank names as compact LuckPerms suffix colors for EssentialsX Chat.
+* Remove the hardcoded yellow color and surrounding parentheses.
+* Preserve plain display names and refresh group metadata on startup.
+
 # TotalXPRewards v1.1.1 - Configurable rank-local BossBar
 
 * Add rank number/count and local earned/required/remaining XP placeholders.

@@ -28,6 +28,16 @@ startup stops for manual review rather than choosing one silently. Back up both
 files before upgrading; the server's existing values take priority over the
 bundled defaults.
 
+## MiniMessage rank suffix (1.3.0 v4)
+
+Rank names in `ranks.yml` support MiniMessage, including gradients. On startup,
+the plugin writes the plain text name as the LuckPerms display name and a
+compact legacy/hex-color suffix at priority 40. EssentialsX Chat can render
+that suffix. The suffix contains the colored rank name without added brackets
+or a forced yellow color. Existing rank group metadata is refreshed on startup.
+The compact color format keeps the LuckPerms H2 permission key within its
+200-character limit for the bundled ranks.
+
 ## SelfUnlock and LuckPerms ranks (1.2.0)
 
 Only a direct, global, permanent LuckPerms `spieler` parent unlocks rank XP and
@@ -51,7 +61,7 @@ Rank changes remove only previous XP rank parents and add the matching new
 parent through the LuckPerms API. Independent and team parents are retained.
 The plugin reconciles ranks at login and after the LuckPerms unlock mutation.
 Reconciliation does not run item rewards again. Rank groups receive a display
-name, prefix at priority 40 and weight 40; moderator/admin should have higher
+name, suffix at priority 40 and weight 40; moderator/admin should have higher
 weights so they remain visible with `primary-group-calculation: parents-by-weight`.
 Inspect users with old XP groups but without direct `spieler` individually;
 old rank membership is not proof of SelfUnlock completion.
