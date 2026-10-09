@@ -33,7 +33,8 @@ import java.util.UUID;
  */
 public final class TotalXPRewardsPlugin extends JavaPlugin {
 
-    private static final int CONFIG_VERSION = 3;
+    private static final int CONFIG_VERSION = 4;
+    private static final String OLD_LIMITED_MESSAGE = "&eRang-XP begrenzt: %reason% &7| Budget: %budget% &7| Minecraft-XP bleiben erhalten.";
     private static TotalXPRewardsPlugin instance;
 
     private XPDatabase database;
@@ -42,11 +43,13 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
     private ScoreboardManager scoreboardManager;
     private PlayerDataManager playerDataManager;
     private volatile ProgressionSettings progressionSettings = ProgressionSettings.DEFAULT;
+    private volatile NoticeSettings noticeSettings = NoticeSettings.DEFAULT;
     private ProgressionService progressionService;
     private RankGroups rankGroups;
     private TotalXPPlaceholderExpansion placeholderExpansion;
 
     public ProgressionSettings getProgressionSettings() { return progressionSettings; }
+    public NoticeSettings getNoticeSettings() { return noticeSettings; }
     public ProgressionService getProgressionService() { return progressionService; }
 
     /**
@@ -245,6 +248,19 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
                 }
             }
 
+            if (currentVersion < 4) {
+                if (!config.contains("progression.notice.duration-seconds"))
+                    config.set("progression.notice.duration-seconds", NoticeSettings.DEFAULT.durationSeconds());
+                if (!config.contains("progression.notice.message")) {
+                    File languageFile = new File(getDataFolder(), "lang.yml");
+                    org.bukkit.configuration.file.YamlConfiguration language =
+                            org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(languageFile);
+                    String oldMessage = language.getString("progression-limited");
+                    config.set("progression.notice.message", oldMessage != null
+                            && !oldMessage.equals(OLD_LIMITED_MESSAGE) ? oldMessage : NoticeSettings.DEFAULT_MESSAGE);
+                }
+            }
+
             // Mark validation as done by updating version
             config.set("config-version", CONFIG_VERSION);
             changed = true;
@@ -280,6 +296,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
             throw new IllegalArgumentException("Cannot read config.yml: " + e.getMessage(), e);
         }
         ProgressionSettings candidate = ProgressionSettings.read(disk.getConfigurationSection("progression"));
+        NoticeSettings candidateNotice = NoticeSettings.read(disk.getConfigurationSection("progression.notice"));
         if (disk.isConfigurationSection("rewards")) {
             throw new IllegalArgumentException("Rewards belong in ranks.yml, not config.yml");
         }
@@ -302,6 +319,7 @@ public final class TotalXPRewardsPlugin extends JavaPlugin {
         reloadConfig();
         Lang.reload(this);
         progressionSettings = candidate;
+        noticeSettings = candidateNotice;
         rewards = java.util.Collections.unmodifiableMap(new TreeMap<>(candidateRewards));
         if (rankGroups != null) rankGroups.validate(rewards);
         if (bossBarManager != null) {

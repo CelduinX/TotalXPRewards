@@ -15,6 +15,7 @@ import org.mockito.MockedStatic;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import net.kyori.adventure.text.Component;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -29,10 +30,12 @@ class ProgressionServiceTest {
         final PlayerData data = new PlayerData(uuid, "Tester", 0);
         final PlayerDataManager manager = mock(PlayerDataManager.class);
         final ProgressionService service;
+        Runnable tick;
         Fixture() {
             when(plugin.getName()).thenReturn("TotalXPRewards");
             when(plugin.namespace()).thenReturn("totalxprewards");
             when(plugin.getProgressionSettings()).thenReturn(ProgressionSettings.DEFAULT);
+            when(plugin.getNoticeSettings()).thenReturn(NoticeSettings.DEFAULT);
             when(plugin.getPlayerDataManager()).thenReturn(manager);
             when(manager.getData(uuid)).thenReturn(data);
             when(player.getUniqueId()).thenReturn(uuid);
@@ -44,7 +47,8 @@ class ProgressionServiceTest {
             when(world.getUID()).thenReturn(UUID.randomUUID());
             data.setProgression(new ProgressionState(1000));
             BukkitScheduler scheduler = mock(BukkitScheduler.class);
-            when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), eq(20L), eq(20L))).thenReturn(mock(BukkitTask.class));
+            when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), eq(20L), eq(20L)))
+                    .thenAnswer(i -> { tick = i.getArgument(1); return mock(BukkitTask.class); });
             bukkit.when(Bukkit::getOnlinePlayers).thenReturn(List.of(player));
             bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
             bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
@@ -89,6 +93,30 @@ class ProgressionServiceTest {
             assertEquals(0, f.service.filter(f.player, 5, f.orb(UUID.randomUUID())));
             verify(f.player, never()).giveExp(anyInt());
             verify(f.player, never()).setTotalExperience(anyInt());
+        }
+    }
+
+    @Test void limitedNoticeRefreshesAndStopsWhenPlayerQuits() {
+        try (Fixture f = new Fixture()) {
+            assertEquals(1000, f.service.filter(f.player, 2000, null));
+            verify(f.player).sendActionBar(any(Component.class));
+            f.tick.run();
+            verify(f.player, times(2)).sendActionBar(any(Component.class));
+            PlayerQuitEvent quit = mock(PlayerQuitEvent.class);
+            when(quit.getPlayer()).thenReturn(f.player);
+            f.service.quit(quit);
+            f.tick.run();
+            verify(f.player, times(2)).sendActionBar(any(Component.class));
+        }
+    }
+
+    @Test void configuredDurationEndsNotice() throws InterruptedException {
+        try (Fixture f = new Fixture()) {
+            when(f.plugin.getNoticeSettings()).thenReturn(new NoticeSettings(1, "Budget: %budget%"));
+            f.service.filter(f.player, 2000, null);
+            Thread.sleep(1100);
+            f.tick.run();
+            verify(f.player).sendActionBar(any(Component.class));
         }
     }
 

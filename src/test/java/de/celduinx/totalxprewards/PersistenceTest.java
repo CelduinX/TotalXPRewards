@@ -35,7 +35,9 @@ class PersistenceTest {
         method.invoke(plugin);
         var settings = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(config.toFile());
         var ranks = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(directory.resolve("ranks.yml").toFile());
-        assertEquals(3, settings.getInt("config-version"));
+        assertEquals(4, settings.getInt("config-version"));
+        assertEquals(10, settings.getInt("progression.notice.duration-seconds"));
+        assertEquals(NoticeSettings.DEFAULT_MESSAGE, settings.getString("progression.notice.message"));
         assertFalse(settings.getBoolean("settings.use-placeholderapi"));
         assertEquals("PURPLE", settings.getString("bossbar.color"));
         assertFalse(settings.contains("rewards"));
@@ -57,6 +59,40 @@ class PersistenceTest {
         method.setAccessible(true);
         assertThrows(java.lang.reflect.InvocationTargetException.class, () -> method.invoke(plugin));
         assertEquals(original, Files.readString(config));
+    }
+
+    @Test void migratesCustomLimitedMessageWithoutReplacingExistingNoticeDuration() throws Exception {
+        Path config = directory.resolve("config.yml");
+        Files.writeString(config, "config-version: 3\nprogression:\n  notice:\n    duration-seconds: 18\n");
+        Files.writeString(directory.resolve("ranks.yml"), "rewards: {}\n");
+        Files.writeString(directory.resolve("lang.yml"),
+                "progression-limited: '&cEigener Text: %reason% | %budget%'\n");
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("NoticeMigrationTest"));
+        var method = TotalXPRewardsPlugin.class.getDeclaredMethod("migrateConfig");
+        method.setAccessible(true);
+        method.invoke(plugin);
+        var migrated = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(config.toFile());
+        assertEquals(4, migrated.getInt("config-version"));
+        assertEquals(18, migrated.getInt("progression.notice.duration-seconds"));
+        assertEquals("&cEigener Text: %reason% | %budget%", migrated.getString("progression.notice.message"));
+    }
+
+    @Test void replacesOldDefaultLimitedMessageWithInformativeTemplate() throws Exception {
+        Path config = directory.resolve("config.yml");
+        Files.writeString(config, "config-version: 3\n");
+        Files.writeString(directory.resolve("ranks.yml"), "rewards: {}\n");
+        Files.writeString(directory.resolve("lang.yml"),
+                "progression-limited: '&eRang-XP begrenzt: %reason% &7| Budget: %budget% &7| Minecraft-XP bleiben erhalten.'\n");
+        TotalXPRewardsPlugin plugin = mock(TotalXPRewardsPlugin.class);
+        when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("DefaultNoticeMigrationTest"));
+        var method = TotalXPRewardsPlugin.class.getDeclaredMethod("migrateConfig");
+        method.setAccessible(true);
+        method.invoke(plugin);
+        var migrated = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(config.toFile());
+        assertEquals(NoticeSettings.DEFAULT_MESSAGE, migrated.getString("progression.notice.message"));
     }
 
     @Test void oldDatabaseMigratesWithoutChangingXpOrRewards() throws Exception {

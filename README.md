@@ -2,7 +2,7 @@
 
 Ränge durch gesammelte Erfahrung für Paper-Server. Spieler verdienen Rang-XP beim Spielen, steigen an festgelegten XP-Schwellen auf und erhalten die von dir konfigurierten Belohnungen. TotalXPRewards verwaltet die zugehörigen LuckPerms-Gruppen und stellt Werte für TAB und andere Plugins über PlaceholderAPI bereit.
 
-**Version:** 1.6.0 · **Minecraft/Paper:** 26.2 · **Benötigt:** LuckPerms · **Optional:** PlaceholderAPI
+**Version:** 1.6.1 · **Minecraft/Paper:** 26.2 · **Benötigt:** LuckPerms · **Optional:** PlaceholderAPI
 
 [Neueste Version herunterladen](https://github.com/CelduinX/TotalXPRewards/releases/latest)
 
@@ -22,12 +22,25 @@ Ränge durch gesammelte Erfahrung für Paper-Server. Spieler verdienen Rang-XP b
 ## Installation und Update
 
 1. Server stoppen. Vor einem Update `plugins/TotalXPRewards/` und die LuckPerms-Daten sichern.
-2. Die JAR `TotalXPRewards-1.6.0-mc26.2.jar` in den Ordner `plugins/` legen. Eine ältere TotalXPRewards-JAR aus diesem Ordner entfernen.
+2. Die JAR `TotalXPRewards-1.6.1-mc26.2.jar` in den Ordner `plugins/` legen. Eine ältere TotalXPRewards-JAR aus diesem Ordner entfernen.
 3. Server starten. Beim ersten Start werden `config.yml`, `ranks.yml` und `lang.yml` unter `plugins/TotalXPRewards/` angelegt.
 4. Die Gruppen aus `ranks.yml` in LuckPerms anlegen. Jede Rangdefinition braucht eine vorhandene, eigene Gruppe.
 5. Server neu starten und `/txp doctor` ausführen.
 
 **Beim Update vorhandene Daten behalten:** `ranks.yml`, `config.yml`, `lang.yml` und `totalxp.db` enthalten deine Einstellungen beziehungsweise Spielerfortschritte. Ersetze bei einem normalen Update nur die Plugin-JAR. Ältere Konfigurationen mit Rängen in `config.yml` werden beim Start mit Sicherung nach `ranks.yml` migriert. Falls sowohl alte Ränge in `config.yml` als auch `ranks.yml` vorhanden sind, bricht das Plugin ab, damit du den Konflikt prüfen kannst.
+
+### Meldung bei begrenzten Rang-XP
+
+Die Meldung erscheint in der ActionBar. Ab Version 1.6.1 kannst du ihre Anzeigedauer und den Text in `config.yml` einstellen:
+
+```yaml
+progression:
+  notice:
+    duration-seconds: 10
+    message: '&eRang-XP: %reason% &7| %budget%/%capacity% &7| +1 in ~%time_to_next_xp% &7| voll in ~%time_to_full% &7(aktiv)'
+```
+
+Die Dauer darf 1 bis 60 Sekunden betragen; währenddessen wird die Meldung einmal pro Sekunde aktualisiert. `%reason%` nennt Rang-XP-Budget, Mob-Farm oder beides. `%budget%` und `%capacity%` zeigen das verfügbare und maximale Rang-XP-Budget. `%time_to_next_xp%` schätzt die Zeit bis zu einem Budgetpunkt, `%time_to_full%` bis zur vollen Aufladung. Diese Zeiten gelten **nur bei weiterer aktiver Spielzeit**; offline und im Leerlauf füllt sich das Budget nicht. Die Mob-Farm-Drosselung hat keinen festen globalen Ablaufzeitpunkt. Normale Minecraft-XP bleiben erhalten. Eine bisher selbst angepasste `progression-limited`-Nachricht aus `lang.yml` wird beim Update als neue Textvorlage übernommen.
 
 ## Ränge einrichten
 

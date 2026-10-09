@@ -68,12 +68,18 @@ scoreboard:
     - ''
     - '&aAlle Item-Belohnungen erreicht!'
 
-config-version: 3
+config-version: 4
 progression:
   enabled: true
   budget-capacity: 1000
   refill-per-active-hour: 500
   activity-timeout-seconds: 120
+  notice:
+    # ActionBar-Anzeigedauer; wird einmal pro Sekunde aktualisiert (1 bis 60).
+    duration-seconds: 10
+    # Zeiten gelten nur bei aktiver Spielzeit. Minecraft-XP bleiben unverändert.
+    # Platzhalter: %reason%, %budget%, %capacity%, %time_to_next_xp%, %time_to_full%
+    message: '&eRang-XP: %reason% &7| %budget%/%capacity% &7| +1 in ~%time_to_next_xp% &7| voll in ~%time_to_full% &7(aktiv)'
   farm:
     enabled: true
     window-seconds: 300

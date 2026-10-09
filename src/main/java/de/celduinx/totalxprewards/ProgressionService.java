@@ -3,6 +3,7 @@ package de.celduinx.totalxprewards;
 import com.destroystokyo.paper.event.entity.ExperienceOrbMergeEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -27,10 +28,12 @@ public final class ProgressionService implements Listener {
     private final NamespacedKey factorKey;
     private final Map<UUID, Location> movementPoints = new HashMap<>();
     private final Map<UUID, Death> deaths = new HashMap<>();
+    private final Map<UUID, Notice> notices = new HashMap<>();
     private final BukkitTask timer;
     private long lastTick = System.nanoTime();
     private long lastSave = lastTick;
     private record Death(double factor, long expires) {}
+    private record Notice(long expires, String reason) {}
 
     public ProgressionService(TotalXPRewardsPlugin plugin) {
         this.plugin = plugin;
@@ -59,6 +62,12 @@ public final class ProgressionService implements Listener {
             if (state != null) {
                 state.settle(now, running && eligible(player), plugin.getProgressionSettings());
                 state.prune(System.currentTimeMillis(), plugin.getProgressionSettings().windowSeconds());
+                Notice notice = notices.get(player.getUniqueId());
+                if (notice != null) {
+                    if (notice.expires() > now && plugin.getProgressionSettings().enabled())
+                        sendNotice(player, state, notice.reason());
+                    else notices.remove(player.getUniqueId());
+                }
             }
         }
         deaths.values().removeIf(d -> d.expires() < now);
@@ -77,11 +86,18 @@ public final class ProgressionService implements Listener {
         double factor = settings.farmEnabled() && source instanceof ExperienceOrb orb ? factor(orb) : 1;
         int result = state.accept(raw, factor, settings);
         if (settings.enabled() && state.noticeDue(now)) {
-            String message = Lang.get("progression-limited").replace("%reason%", reasonText(state.reason()))
-                    .replace("%budget%", String.format(java.util.Locale.ROOT, "%.1f", state.budget()));
-            player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(message));
+            NoticeSettings notice = plugin.getNoticeSettings();
+            notices.put(player.getUniqueId(), new Notice(now + notice.durationSeconds() * 1_000_000_000L,
+                    state.reason()));
+            sendNotice(player, state, state.reason());
         }
         return result;
+    }
+
+    private void sendNotice(Player player, ProgressionState state, String reason) {
+        String message = plugin.getNoticeSettings().render(state, plugin.getProgressionSettings(), reasonText(reason));
+        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(
+                ChatColor.translateAlternateColorCodes('&', message)));
     }
 
     public void settlePlayer(Player player) {
@@ -109,7 +125,10 @@ public final class ProgressionService implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void quit(PlayerQuitEvent event) { movementPoints.remove(event.getPlayer().getUniqueId()); }
+    public void quit(PlayerQuitEvent event) {
+        movementPoints.remove(event.getPlayer().getUniqueId());
+        notices.remove(event.getPlayer().getUniqueId());
+    }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void teleport(PlayerTeleportEvent event) {
@@ -226,6 +245,7 @@ public final class ProgressionService implements Listener {
 
     public void close() {
         timer.cancel();
+        notices.clear();
         for (Player p : Bukkit.getOnlinePlayers()) settlePlayer(p);
     }
 }

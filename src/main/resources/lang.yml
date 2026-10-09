@@ -27,7 +27,6 @@ max-rank: "Max Rank"
 
 progression-help: "&f/%label% status [Spieler] &7Rang-XP und Budget (fremde Spieler: Admin)"
 progression-status: "&e%player% &7| &a%xp% Rang-XP &7| Budget: &a%budget%/%capacity% &7| %active% &7| Aktiv: %hours% h &7| Schutz: %enabled% &7| Letzter Grund: %reason%"
-progression-limited: "&eRang-XP begrenzt: %reason% &7| Budget: %budget% &7| Minecraft-XP bleiben erhalten."
 progression-config-error: "&cUngültige Konfiguration. Bisherige Einstellungen bleiben aktiv:"
 progression-active: "aktiv"
 progression-inactive: "inaktiv"

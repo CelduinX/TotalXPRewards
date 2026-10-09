@@ -1,3 +1,9 @@
+# TotalXPRewards v1.6.1 - Configurable progression notice
+
+* Keep the rank-XP limiting ActionBar visible for a configurable duration and refresh its values.
+* Add active-playtime estimates for the next budget point and a full budget.
+* Migrate existing configurations and preserve custom limiting messages from lang.yml.
+
 # TotalXPRewards v1.6.0 - Personal reward scoreboard
 
 * Add an optional right-side scoreboard with current rank and next item reward.
@@ -13,7 +19,6 @@
 * Add `/txp doctor` for database, LuckPerms rank and PlaceholderAPI checks.
 * Deliver configured vanilla `give` rewards directly and drop inventory overflow at the player.
 * Replace the README with an admin-focused guide.
-
 # TotalXPRewards v1.4.0 - PlaceholderAPI expansion
 
 * Add built-in `%totalxprewards_*%` placeholders for rank XP, position, names, groups and thresholds.
